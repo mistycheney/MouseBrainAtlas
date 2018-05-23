@@ -25,7 +25,6 @@ It is important to use only one composition rule for each brain. **Do not use sp
 
 ## Convert raw data to TIFs
 - jp2 -> raw
-- raw -> raw_Ntb:
 
 ## For thionin (brightfield) data
 * raw -> thumbnail
@@ -50,6 +49,7 @@ _prep2_raw_gray_ are used for structure detection.
 _prep5_raw_ will be published online.
 
 ## For Neurotrace (fluorescent) data
+* raw -> raw_Ntb:
 * raw_Ntb -> thumbnail_Ntb
 * thumbnail_Ntb -> thumbnail_NtbNormalized: 0.1s/section
 * **Compute transforms using thumbnail_NtbNormalized**
@@ -68,7 +68,7 @@ _prep5_raw_ will be published online.
 # jp2/czi -> raw
 
 ## CSHL data
-Data from CSHL are acquired using Nanozoomer (0.46 micron/pixel).
+Data from CSHL are acquired using Hamamatsu Nanozoomer (0.46 micron/pixel).
 Raw data from the scanner are NDPI files. 
 The raw files are of whole-slides and do not specify the bounding box of individual sections.
 CSHL did the segmentation and sent us images of individual sections re-encoded as JPEG2000 files.

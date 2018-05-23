@@ -8,9 +8,9 @@ Output is under `/data/CSHL_patch_features/inception-bn-blue/<brain>/<brain>_pre
 - `<image_name>_prep2_none_win7_inception-bn-blue_features.bp`: feature vectors. n x 1024 array (float), each row is the feature at one location.
 - `<image_name>_prep2_none_win7_inception-bn-blue_locations.bp`: location of each feature. n x 2(?) array (int), each row is (x,y,??)
 
-Reference: `learning/compute_features_for_entire_stacks.ipynb`
+Notebook: `learning/compute_features_for_entire_stacks.ipynb`
 
-## Simple global registration
+## Simple global registration (optional)
 
 This step performs a simple texture-independent registration that roughly aligns the atlas to the subject.
 The purpose is to find a small 3-D extent (compared to the full subject) to run the subsequent detection.
@@ -27,15 +27,13 @@ Run `learning/from_images_to_score_volumes.py <brain_name> <detector_id> --struc
 
 2-D score map output is under 
 - `/home/yuncong/CSHL_scoremaps/10.0um/<brain_name>/<brain_name>_prep2_10.0um_detector<detector_id>/<image_name>_prep2_10.0um_detector<detector_id>/<image_name>_prep2_10.0um_detector<detector_id>_<structure>_scoremap.bp`. 2-d probability map for one classifier (float between 0 and 1).
-- `/home/yuncong/CSHL_scoremap_viz/10.0um/<structure>/<brain_name>/detector<detector_id>/prep2/<image_name>_prep2_10.0um_<structure>_detector<detector_id>_scoremapViz.jpg`. Tissue image with probability map overlay.
+- `/home/yuncong/CSHL_scoremap_viz/10.0um/<structure>/<brain_name>/detector<detector_id>/prep2/<image_name>_prep2_10.0um_<structure>_detector<detector_id>_scoremapViz.jpg`. Section image with probability map overlay.
 
 3-D score map output is under
 - `/home/yuncong/CSHL_volumes/<brain_name>/<brain_name>_detector<detector_id>_10.0um_scoreVolume`
   - `score_volumes`. Score volume; 3-d float array.
-    - `<brain_name>_detector<detector_id>_10.0um_scoreVolume_<structure>.bp`.
-    - `<brain_name>_detector<detector_id>_10.0um_scoreVolume_<structure>_origin_wrt_wholebrain.txt`.
+    - volume spec: `<brain_name>_detector<detector_id>_10.0um_scoreVolume_<structure>`.
   - `score_volume_gradients`.  Gradients of score volume. 3 x 3-d float array.
-    - `<brain_name>_detector<detector_id>_10.0um_scoreVolume_<structure>_gradients.bp`. 
-    - `<brain_name>_detector<detector_id>_10.0um_scoreVolume_<structure>_gradients_origin_wrt_wholebrain.txt`. **(TODO: DEBUG)**
+    - volume spec: `<brain_name>_detector<detector_id>_10.0um_scoreVolume_<structure>_gradients`. **(TO FIX: "gradients" is missing from gradient origin filenames)**
 
-Reference: `learning/from_images_to_score_volume.ipynb`
+Notebook: `learning/from_images_to_score_volume.ipynb`

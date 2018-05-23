@@ -97,6 +97,9 @@ win_id = detector_setting['windowing_id']
 output_resolution = '10.0um'
 out_resolution_um = convert_resolution_string_to_um(resolution=output_resolution, stack=stack)
 
+valid_secmin = np.min(metadata_cache['valid_sections'][stack])
+valid_secmax = np.max(metadata_cache['valid_sections'][stack])
+
 registered_atlas_structures_wrt_wholebrainXYcropped_xysecTwoCorners = \
 load_json('/home/yuncong/' + stack + '_registered_atlas_structures_wrt_wholebrainXYcropped_xysecTwoCorners.json')
 
@@ -104,14 +107,12 @@ load_json('/home/yuncong/' + stack + '_registered_atlas_structures_wrt_wholebrai
 
 registered_atlas_structures_wrt_wholebrainXYcropped_bboxes_perSection = defaultdict(dict)
 
-section_margin_um = 1000.
+section_margin_um = 400.
 section_margin = int(section_margin_um / SECTION_THICKNESS)
 
 image_margin_um = 2000.
 image_margin = int(np.round(image_margin_um / convert_resolution_string_to_um('raw', stack)))
 
-valid_secmin = np.min(metadata_cache['valid_sections'][stack])
-valid_secmax = np.max(metadata_cache['valid_sections'][stack])
 
 for name_u in structure_list:
 

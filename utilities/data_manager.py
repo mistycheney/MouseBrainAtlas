@@ -1020,7 +1020,7 @@ class DataManager(object):
         anchor_fn = DataManager.load_data(fp, filetype='anchor')
         return anchor_fn
 
-
+    
     @staticmethod
     def load_section_limits_v2(stack, anchor_fn=None, prep_id=2):
         """
@@ -1028,7 +1028,7 @@ class DataManager(object):
 
         d = load_data(DataManager.get_section_limits_filename_v2(stack=stack, anchor_fn=anchor_fn, prep_id=prep_id))
         return np.r_[d['left_section_limit'], d['right_section_limit']]
-
+    
     @staticmethod
     def get_section_limits_filename_v2(stack, anchor_fn=None, prep_id=2):
         """
@@ -1046,7 +1046,7 @@ class DataManager(object):
 
         fp = os.path.join(THUMBNAIL_DATA_DIR, stack, stack + '_alignedTo_' + anchor_fn + '_prep' + str(prep_id) + '_sectionLimits.json')
         return fp
-
+    
     @staticmethod
     def get_cropbox_filename_v2(stack, anchor_fn=None, prep_id=2):
         """
@@ -1156,12 +1156,12 @@ class DataManager(object):
 
     @staticmethod
     def load_cropbox_v2_relative(stack, prep_id, wrt_prep_id, out_resolution):
-
+            
         alignedBrainstemCrop_xmin_down32, alignedBrainstemCrop_xmax_down32, \
         alignedBrainstemCrop_ymin_down32, alignedBrainstemCrop_ymax_down32 = DataManager.load_cropbox_v2(stack=stack, prep_id=prep_id, only_2d=True)
 
         alignedWithMargin_xmin_down32, alignedWithMargin_xmax_down32,\
-        alignedWithMargin_ymin_down32, alignedWithMargin_ymax_down32 = DataManager.load_cropbox_v2(stack=stack, anchor_fn=None,
+        alignedWithMargin_ymin_down32, alignedWithMargin_ymax_down32 = DataManager.load_cropbox_v2(stack=stack, anchor_fn=None, 
                                                                 prep_id=wrt_prep_id,
                                                                return_dict=False, only_2d=True)
 
@@ -1169,15 +1169,15 @@ class DataManager(object):
         alignedBrainstemCrop_xmax_wrt_alignedWithMargin_down32 = alignedBrainstemCrop_xmax_down32 - alignedWithMargin_xmin_down32
         alignedBrainstemCrop_ymin_wrt_alignedWithMargin_down32 = alignedBrainstemCrop_ymin_down32 - alignedWithMargin_ymin_down32
         alignedBrainstemCrop_ymax_wrt_alignedWithMargin_down32 = alignedBrainstemCrop_ymax_down32 - alignedWithMargin_ymin_down32
-
-        scale_factor = convert_resolution_string_to_um('down32', stack) / convert_resolution_string_to_um(out_resolution, stack)
-
-        return np.round([alignedBrainstemCrop_xmin_wrt_alignedWithMargin_down32 * scale_factor,
-                         alignedBrainstemCrop_xmax_wrt_alignedWithMargin_down32 * scale_factor,
-                         alignedBrainstemCrop_ymin_wrt_alignedWithMargin_down32 * scale_factor,
+        
+        scale_factor = convert_resolution_string_to_um('down32', stack) / convert_resolution_string_to_um(out_resolution, stack) 
+        
+        return np.round([alignedBrainstemCrop_xmin_wrt_alignedWithMargin_down32 * scale_factor, 
+                         alignedBrainstemCrop_xmax_wrt_alignedWithMargin_down32 * scale_factor, 
+                         alignedBrainstemCrop_ymin_wrt_alignedWithMargin_down32 * scale_factor, 
                          alignedBrainstemCrop_ymax_wrt_alignedWithMargin_down32 * scale_factor]).astype(np.int)
-
-
+    
+    
     @staticmethod
     def load_cropbox_v2(stack, anchor_fn=None, convert_section_to_z=False, prep_id=2,
                         return_origin_instead_of_bbox=False,
@@ -1500,32 +1500,32 @@ class DataManager(object):
     #     return DataManager.get_warped_volume_basename(stack_m=stack, classifier_setting_m=classifier_setting,
     #     downscale=downscale, type_m=volume_type)
 
-#     @staticmethod
-#     def get_original_volume_basename(stack, prep_id=None, detector_id=None, resolution=None, downscale=None, structure=None, volume_type='score', **kwargs):
-#         """
-#         Args:
-#             resolution (str): down32 or 10.0um
-#         """
+    @staticmethod
+    def get_original_volume_basename(stack, prep_id=None, detector_id=None, resolution=None, downscale=None, structure=None, volume_type='score', **kwargs):
+        """
+        Args:
+            resolution (str): down32 or 10.0um
+        """
 
-#         components = []
-#         if prep_id is not None:
-#             components.append('prep%(prep)d' % {'prep':prep_id})
-#         if detector_id is not None:
-#             components.append('detector%(detector_id)d' % {'detector_id':detector_id})
+        components = []
+        if prep_id is not None:
+            components.append('prep%(prep)d' % {'prep':prep_id})
+        if detector_id is not None:
+            components.append('detector%(detector_id)d' % {'detector_id':detector_id})
 
-#         if resolution is None:
-#             if downscale is not None:
-#                 resolution = 'down%d' % downscale
+        if resolution is None:
+            if downscale is not None:
+                resolution = 'down%d' % downscale
 
-#         if resolution is not None:
-#             components.append('%(outres)s' % {'outres':resolution})
+        if resolution is not None:
+            components.append('%(outres)s' % {'outres':resolution})
 
-#         tmp_str = '_'.join(components)
-#         basename = '%(stack)s_%(tmp_str)s_%(volstr)s' % \
-#             {'stack':stack, 'tmp_str':tmp_str, 'volstr':volume_type_to_str(volume_type)}
-#         if structure is not None:
-#             basename += '_' + structure
-#         return basename
+        tmp_str = '_'.join(components)
+        basename = '%(stack)s_%(tmp_str)s_%(volstr)s' % \
+            {'stack':stack, 'tmp_str':tmp_str, 'volstr':volume_type_to_str(volume_type)}
+        if structure is not None:
+            basename += '_' + structure
+        return basename
 
     @staticmethod
     def get_original_volume_basename_v2(stack_spec):
@@ -1593,37 +1593,37 @@ class DataManager(object):
         return basename
 
     # OBSOLETE
-#     @staticmethod
-#     def get_warped_volume_basename(stack_m,
-#                                    stack_f=None,
-#                                    warp_setting=None,
-#                                    prep_id_m=None,
-#                                    prep_id_f=None,
-#                                    detector_id_m=None,
-#                                    detector_id_f=None,
-#                                    downscale=32,
-#                                    structure_m=None,
-#                                    structure_f=None,
-#                                    vol_type_m='score',
-#                                    vol_type_f='score',
-#                                    trial_idx=None,
-#                                    **kwargs):
+    @staticmethod
+    def get_warped_volume_basename(stack_m,
+                                   stack_f=None,
+                                   warp_setting=None,
+                                   prep_id_m=None,
+                                   prep_id_f=None,
+                                   detector_id_m=None,
+                                   detector_id_f=None,
+                                   downscale=32,
+                                   structure_m=None,
+                                   structure_f=None,
+                                   vol_type_m='score',
+                                   vol_type_f='score',
+                                   trial_idx=None,
+                                   **kwargs):
 
-#         basename_m = DataManager.get_original_volume_basename(stack=stack_m, prep_id=prep_id_m, detector_id=detector_id_m,
-#                                                   resolution='down%d'%downscale, volume_type=vol_type_m, structure=structure_m)
+        basename_m = DataManager.get_original_volume_basename(stack=stack_m, prep_id=prep_id_m, detector_id=detector_id_m,
+                                                  resolution='down%d'%downscale, volume_type=vol_type_m, structure=structure_m)
 
-#         if stack_f is None:
-#             assert warp_setting is None
-#             vol_name = basename_m
-#         else:
-#             basename_f = DataManager.get_original_volume_basename(stack=stack_f, prep_id=prep_id_f, detector_id=detector_id_f,
-#                                                   resolution='down%d'%downscale, volume_type=vol_type_f, structure=structure_f)
-#             vol_name = basename_m + '_warp%(warp)d_' % {'warp':warp_setting} + basename_f
+        if stack_f is None:
+            assert warp_setting is None
+            vol_name = basename_m
+        else:
+            basename_f = DataManager.get_original_volume_basename(stack=stack_f, prep_id=prep_id_f, detector_id=detector_id_f,
+                                                  resolution='down%d'%downscale, volume_type=vol_type_f, structure=structure_f)
+            vol_name = basename_m + '_warp%(warp)d_' % {'warp':warp_setting} + basename_f
 
-#         if trial_idx is not None:
-#             vol_name += '_trial_%d' % trial_idx
+        if trial_idx is not None:
+            vol_name += '_trial_%d' % trial_idx
 
-#         return vol_name
+        return vol_name
 
     @staticmethod
     def get_warped_volume_basename_v2(alignment_spec, trial_idx=None):
@@ -4538,7 +4538,7 @@ class DataManager(object):
             elif version == 'mask' and (resol == 'down32' or resol == 'thumbnail'):
                 if isinstance(prep_id, str):
                     prep_id = prep_str_to_id_2d[prep_id]
-
+                    
                 if prep_id == 2:
                     # get prep 2 masks directly from prep 5 masks.
                     try:
@@ -4551,7 +4551,7 @@ class DataManager(object):
                         xmin,xmax,ymin,ymax = DataManager.load_cropbox_v2_relative(stack=stack, prep_id=prep_id, wrt_prep_id=5, out_resolution='down32')
                         mask_prep2 = mask_prep5[ymin:ymax+1, xmin:xmax+1].copy()
                         return mask_prep2.astype(np.bool)
-                    except:
+                    except:                            
                         # get prep 2 masks directly from prep 1 masks.
                         sys.stderr.write('Cannot load mask %s, section=%s, fn=%s, prep=%s\n' % (stack, section, fn, prep_id))
                         sys.stderr.write('Try finding prep1 masks.\n')
@@ -4623,9 +4623,9 @@ class DataManager(object):
         if resol == 'lossless':
             if stack == 'CHATM2' or stack == 'CHATM3':
                 resol = 'raw'
-        elif resol == 'raw':
-            if stack not in ['CHATM2', 'CHATM3']:
-                resol = 'lossless'
+        # elif resol == 'raw':
+        #     if stack not in ['CHATM2', 'CHATM3']:
+        #         resol = 'lossless'
 
         if section is not None:
             fn = metadata_cache['sections_to_filenames'][stack][section]
@@ -4997,11 +4997,11 @@ class DataManager(object):
             return mask
         except:
             sys.stderr.write('Cannot load mask %s, section=%s, fn=%s, prep=%s\n' % (stack, section, fn, prep_id))
-
+            
             if isinstance(prep_id, str):
                 prep_id = prep_str_to_id_2d[prep_id]
 
-            if prep_id == 2:
+            if prep_id == 2:        
                 # get prep 2 masks directly from prep 5 masks.
                 try:
                     sys.stderr.write('Try finding prep5 masks.\n')
@@ -5012,7 +5012,7 @@ class DataManager(object):
                     xmin,xmax,ymin,ymax = DataManager.load_cropbox_v2_relative(stack=stack, prep_id=prep_id, wrt_prep_id=5, out_resolution='down32')
                     mask_prep2 = mask_prep5[ymin:ymax+1, xmin:xmax+1].copy()
                     return mask_prep2
-                except:
+                except:                            
                     # get prep 2 masks directly from prep 1 masks.
                     sys.stderr.write('Cannot load mask %s, section=%s, fn=%s, prep=%s\n' % (stack, section, fn, prep_id))
                     sys.stderr.write('Try finding prep1 masks.\n')
@@ -5023,7 +5023,7 @@ class DataManager(object):
                     xmin,xmax,ymin,ymax = DataManager.load_cropbox_v2(stack=stack, prep_id=prep_id, return_dict=False, only_2d=True)
                     mask_prep2 = mask_prep1[ymin:ymax+1, xmin:xmax+1].copy()
                     return mask_prep2
-
+        
 
     # @staticmethod
     # def load_thumbnail_mask_v3(stack, prep_id, section=None, fn=None):

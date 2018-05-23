@@ -53,11 +53,9 @@ In our system, a transform can be expressed in any of the following ways:
 Annotation
 =========
 
-There are three types of annotations (points, 2D polygons, 3D volumes). They are stored as HDF tabular files. Each row represents one point, polygon or volume.
+There are two types of annotations (2D polygons, 3D structures). They are stored as HDF tabular files. Each row represents a polygon or a structure.
 
 ## 2-D Polygons 
-
-These include points which are single vertex polygons.
 
 Each row of the contour annotation file is indexed by a random `contour_id`. The columns are
 
@@ -93,3 +91,4 @@ The columns are:
 - `side`: L or R or S (singular)
 - `volume`: the 3-D volume encoded by bloscpack as string
 
+## Point markers

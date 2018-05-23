@@ -30,11 +30,12 @@ Run `learning/from_images_to_score_volumes.py <brain_name> <detector_id> --struc
 - `/home/yuncong/CSHL_scoremap_viz/10.0um/<structure>/<brain_name>/detector<detector_id>/prep2/<image_name>_prep2_10.0um_<structure>_detector<detector_id>_scoremapViz.jpg`. Tissue image with probability map overlay.
 
 3-D score map output is under
-- `/home/yuncong/CSHL_volumes/<brain_name>/<brain_name>_detector<detector_id>_10.0um_scoreVolume/score_volumes`. Score volume; 3-d float array.
-  - `<brain_name>_detector<detector_id>_10.0um_scoreVolume_<structure>.bp`.
-  - `<brain_name>_detector<detector_id>_10.0um_scoreVolume_<structure>_origin_wrt_wholebrain.txt`.
-- `/home/yuncong/CSHL_volumes/<brain_name>/<brain_name>_detector<detector_id>_10.0um_scoreVolume/score_volume_gradients`.  Gradients of score volume. 3 x 3-d float array.
-  - `<brain_name>_detector<detector_id>_10.0um_scoreVolume_<structure>_gradients.bp`. 
-  - `<brain_name>_detector<detector_id>_10.0um_scoreVolume_<structure>_gradients_origin_wrt_wholebrain.txt`. **(TODO: DEBUG)**
+- `/home/yuncong/CSHL_volumes/<brain_name>/<brain_name>_detector<detector_id>_10.0um_scoreVolume`
+  - `score_volumes`. Score volume; 3-d float array.
+    - `<brain_name>_detector<detector_id>_10.0um_scoreVolume_<structure>.bp`.
+    - `<brain_name>_detector<detector_id>_10.0um_scoreVolume_<structure>_origin_wrt_wholebrain.txt`.
+  - `score_volume_gradients`.  Gradients of score volume. 3 x 3-d float array.
+    - `<brain_name>_detector<detector_id>_10.0um_scoreVolume_<structure>_gradients.bp`. 
+    - `<brain_name>_detector<detector_id>_10.0um_scoreVolume_<structure>_gradients_origin_wrt_wholebrain.txt`. **(TODO: DEBUG)**
 
 Reference: `learning/from_images_to_score_volume.ipynb`

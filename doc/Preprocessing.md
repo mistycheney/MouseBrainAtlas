@@ -1,13 +1,33 @@
+[Complete list of brains](https://docs.google.com/spreadsheets/d/1QHW_hoMVMcKMEqqkzFnrppu8XT92BPdIagpSqQMAJHA/edit?usp=sharing)
+
+# Convert raw data to TIFs
+## CSHL data
+Data from CSHL are acquired using Nanozoomer (0.46 micron/pixel).
+Raw data from the scanner are NDPI files. 
+The raw files are of whole-slides and do not specify the bounding box of individual sections.
+CSHL did the segmentation and sent us images of individual sections re-encoded as JPEG2000 files.
+(Note: we do not have the segmentation code at this moment.) 
+
+### Convert JPEG2000 to TIF
+Use [Kakadu](http://kakadusoftware.com/downloads/). Run `export LD_LIBRARY_PATH=<kdu_dir>:$LD_LIBRARY_PATH; <kdu_bin> -i <in_fp> -o <out_fp>`
+Output are 8-bit (thionin) or 16-bit (fluorescent) TIFFs.
+
+## UCSD data
+UCSD data are acquired using Zeiss Axioscan (0.325 micron/pixel).
+Raw data from the scanner are CZI files. In these files individual sections are recorded as different scenes.
+
+### Convert CZI files
+Use`CZItoTIFFConverter` ([download link](http://cifweb.unil.ch/index.php?option=com_content&task=view&id=152&Itemid=2), [user manual](https://www.unige.ch/medecine/bioimaging/files/7814/3714/1634/CZItoTIFFConverter.pdf)).
+Setting ??
+Output are 8-bit (thionin) or 16-bit (fluorescent) TIFFs.
+
+The raw images must be of sagittal sections, with the anterior at the left and the posterior at the right.
+
+
 
 # Preprocessing a new stack
 
 In this part, the user examines the images, creates tissue masks, aligns the sections in a stack and (optionally) crops the images.
-
-## Data preparation
-
-The raw images must be of sagittal sections, with the anterior at the left and the posterior at the right.
-
-All images must be 16- or 8-bit tiff. To convert Zeiss scanner output from czi format to 16-bit tiff, use `CZItoTIFFConverter` ([download link](http://cifweb.unil.ch/index.php?option=com_content&task=view&id=152&Itemid=2), [user manual](https://www.unige.ch/medecine/bioimaging/files/7814/3714/1634/CZItoTIFFConverter.pdf)).
 
 ## Initialization
 

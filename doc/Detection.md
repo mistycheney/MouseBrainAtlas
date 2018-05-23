@@ -15,7 +15,7 @@ This can be achieved by any of the following:
 - Use the GUI to select a set of anchor points.
 For example, we can use two points: the centroid of 12N and 3N(either L or R). Then
 `registration/registration_v7_atlasV6_simpleGlobal`
-- Automatically align the 3-D section outline.
+- Automatically align the 3-D brain outline.
 
 ## Convert the image stack to 3-D probability maps.
 Run `learning/from_images_to_score_volumes.py <brain_name> <detector_id> --structure_list <json-encoded list str>`

@@ -47,7 +47,11 @@ Generated registration results are stored at
 `CSHL_registration_parameters/<atlas_name>/<atlas_name>_10.0um_scoreVolume_<moving_structures>_warp<registration_id>_<fixed_brain>_detector<detector_id>_10.0um_scoreVolume_<fixed_structures>`.
 Also see [Explanation of registration results](DataDescription.md)
 
-Transformed moving structures are stored at ??
+Transformed moving structures (including the corresponding surround structures) are stored at 
+`CSHL_volumes/<atlas_name>/<moving_brain_spec>_warp<registration_setting_id>_<fixed_brain_spec>/score_volumes/`
+
+For each structure, the volume spec is `<moving_brain_spec>_warp<registration_setting_id>_<fixed_brain_spec>_<sided_or_surround_structure>`.
+Origin wrt is `origin_wrt_fixedWholebrain.txt`.
 
 To overlay transformed atlas on section images, run 
 `registration/visualize_registration.py <fixed_brain_spec_json> <moving_brain_spec_json> <registration_setting_id> [--structure_list <json_encoded_structure_list>]`

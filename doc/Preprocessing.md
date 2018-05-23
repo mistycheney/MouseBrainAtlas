@@ -49,7 +49,7 @@ _prep2_raw_gray_ are used for structure detection.
 _prep5_raw_ will be published online.
 
 ## For Neurotrace (fluorescent) data
-- raw -> raw_Ntb:
+* raw -> raw_Ntb:
 * raw_Ntb -> thumbnail_Ntb
 * thumbnail_Ntb -> thumbnail_NtbNormalized: 0.1s/section
 * **Compute transforms using thumbnail_NtbNormalized**

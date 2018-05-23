@@ -36,6 +36,6 @@ Run `learning/from_images_to_score_volumes.py <brain_name> <detector_id> --struc
     - `<brain_name>_detector<detector_id>_10.0um_scoreVolume_<structure>_origin_wrt_wholebrain.txt`.
   - `score_volume_gradients`.  Gradients of score volume. 3 x 3-d float array.
     - `<brain_name>_detector<detector_id>_10.0um_scoreVolume_<structure>_gradients.bp`. 
-    - `<brain_name>_detector<detector_id>_10.0um_scoreVolume_<structure>_gradients_origin_wrt_wholebrain.txt`. **(TODO: DEBUG)**
+    - `<brain_name>_detector<detector_id>_10.0um_scoreVolume_<structure>_gradients_origin_wrt_wholebrain.txt`. **(TODO: "gradients" is missing from actual filenames)**
 
 Notebook: `learning/from_images_to_score_volume.ipynb`

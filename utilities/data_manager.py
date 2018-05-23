@@ -2222,9 +2222,9 @@ class DataManager(object):
     def get_atlas_canonical_centroid_filepath(atlas_name, **kwargs):
         """
         Filepath of the atlas canonical centroid data.
-        The centroid is with respect to aligned uncropped MD589.
+        The centroid is with respect to the wholebrain frame of the fixed brain used to build atlas (MD589).
         """
-        return os.path.join(MESH_ROOTDIR, atlas_name, atlas_name + '_canonicalCentroid.txt')
+        return os.path.join(MESH_ROOTDIR, atlas_name, atlas_name + '_canonicalCentroid_wrt_fixedWholebrain.txt')
 
     @staticmethod
     def get_atlas_canonical_normal_filepath(atlas_name, **kwargs):
@@ -3576,32 +3576,32 @@ class DataManager(object):
             index = 1
 
         for structure in structures:
-            # try:
+            try:
 
-            if loaded:
-                index = structure_to_label[structure]
+                if loaded:
+                    index = structure_to_label[structure]
 
-            v, o = DataManager.load_original_volume_v2(stack_spec, structure=structure, bbox_wrt=in_bbox_wrt, resolution=stack_spec['resolution'])
+                v, o = DataManager.load_original_volume_v2(stack_spec, structure=structure, bbox_wrt=in_bbox_wrt, resolution=stack_spec['resolution'])
 
-            in_bbox_origin_wrt_wholebrain = DataManager.get_domain_origin(stack=stack_spec['name'], domain=in_bbox_wrt,
-                                                                         resolution=stack_spec['resolution'],
-                                                                         loaded_cropbox_resolution=stack_spec['resolution'])
-            o = o + in_bbox_origin_wrt_wholebrain
+                in_bbox_origin_wrt_wholebrain = DataManager.get_domain_origin(stack=stack_spec['name'], domain=in_bbox_wrt,
+                                                                             resolution=stack_spec['resolution'],
+                                                                             loaded_cropbox_resolution=stack_spec['resolution'])
+                o = o + in_bbox_origin_wrt_wholebrain
 
-            if name_or_index_as_key == 'name':
-                volumes[structure] = (v,o)
-            else:
-                volumes[index] = (v,o)
+                if name_or_index_as_key == 'name':
+                    volumes[structure] = (v,o)
+                else:
+                    volumes[index] = (v,o)
 
-            if not loaded:
-                structure_to_label[structure] = index
-                label_to_structure[index] = structure
-                index += 1
+                if not loaded:
+                    structure_to_label[structure] = index
+                    label_to_structure[index] = structure
+                    index += 1
 
-            # except Exception as e:
-            #     # raise e
-            #     sys.stderr.write('%s\n' % e)
-            #     sys.stderr.write('Score volume for %s does not exist.\n' % structure)
+            except Exception as e:
+                # raise e
+                sys.stderr.write('%s\n' % e)
+                sys.stderr.write('Score volume for %s does not exist.\n' % structure)
 
         if common_shape:
             volumes_normalized, common_bbox = convert_vol_bbox_dict_to_overall_vol(vol_bbox_dict=volumes)

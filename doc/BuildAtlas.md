@@ -4,7 +4,9 @@ Reference: `3d/build_atlas_from_aligned_annotated_brains_v6.ipynb`
 
 ## Compute average positions
 - Mean positions (wrt _canonicalAtlasSpace_). `/CSHL_meshes/<atlas_name>/<atlas_name>_1um_meanPositions.pkl`
-  
+
+## Compute average shapes
+
 - Mean shape volumes
     - `/CSHL_meshes/<atlas_name>/mean_shapes/<atlas_name>_10.0um_<sided_or_surround_structure>_meanShape_volume.bp`
     - `/CSHL_meshes/<atlas_name>/mean_shapes/<atlas_name>_10.0um_<sided_or_surround_structure>_meanShape_origin_wrt_meanShapeCentroid.txt`.
@@ -17,4 +19,9 @@ Reference: `3d/build_atlas_from_aligned_annotated_brains_v6.ipynb`
       - `<registration_spec>_scoreHistory.bp`
       - `<registration_spec>_trajectory.bp`
     
+##  Put average shape at average position
+
+- Atlas structures. 
+`/CSHL_meshes/<atlas_name>/mean_shapes/<atlas_name>_10.0um_<sided_or_surround_structure>_origin_wrt_canonicalAtlasSpace.txt`.
+
 

@@ -4,6 +4,7 @@
 - [Preprocessing](Preprocessing.md)
 - [Registration](Registration.md)
 - [Detection](Detection.md)
+- [Visualization](Visualization.md)
 
 # Software installation
 

@@ -34,6 +34,6 @@ Run `learning/from_images_to_score_volumes.py <brain_name> <detector_id> --struc
   - `score_volumes`. Score volume; 3-d float array.
     - volume spec: `<brain_name>_detector<detector_id>_10.0um_scoreVolume_<structure>`.
   - `score_volume_gradients`.  Gradients of score volume. 3 x 3-d float array.
-    - volume spec: `<brain_name>_detector<detector_id>_10.0um_scoreVolume_<structure>_gradients`. **(TODO: "gradients" is missing from gradient origin filenames)**
+    - volume spec: `<brain_name>_detector<detector_id>_10.0um_scoreVolume_<structure>_gradients`. **(TO FIX: "gradients" is missing from gradient origin filenames)**
 
 Notebook: `learning/from_images_to_score_volume.ipynb`

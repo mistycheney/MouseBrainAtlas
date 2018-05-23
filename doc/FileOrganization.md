@@ -1,7 +1,4 @@
-Code
-=======
-
-[Github repository](https://github.com/mistycheney/MouseBrainAtlas)
+This page describes the location of the raw input and intermediate data.
 
 Data Path
 ============

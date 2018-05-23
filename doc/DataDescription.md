@@ -21,16 +21,6 @@ The following _volume types_ are defined, each with a different 3-d array data t
 Registration results
 ===========
 
-A transform can be expressed in any of the following ways:
-
-* dictionary
-  - `parameters`: 12-array, flattened version of the rigid or affine 3x4 matrix.
-  - `centroid_m_wrt_wholebrain`: 3-array, initial shift of the moving volume, relative to the wholebrain origin.
-  - `centroid_f_wrt_wholebrain`: 3-array, initial shift of the fixed volume, relative to the wholebrain origin.
-* (4,4) matrix: the 4x4 matrix that represents the transform.
-* (3,4) matrix: first three rows of the full 4x4 matrix.
-* (12,) array: flattened array of the first three rows of the full 4x4 matrix.
-
 For each registration, the following results are stored:
 - `<registration_identifier>_parameters.json`: contains three keys `centroid_f_wrt_wholebrain`((3,)-array), `centroid_m_wrt_wholebrain`((3,)-array) and `parameters`((12,)-array).
 - `<registration_identifier>_scoreHistory.bp`: the score history as a list
@@ -49,14 +39,25 @@ q - q0 = R * T0(p-p0) + t
 - `t`, 3-array, which is part of the computed transform.
 - `T0` is the initial transform. 
 
+In our system, a transform can be expressed in any of the following ways:
+
+* dictionary
+  - `parameters`: 12-array, flattened version of the rigid or affine 3x4 matrix.
+  - `centroid_m_wrt_wholebrain`: 3-array, initial shift of the moving volume, relative to the wholebrain origin.
+  - `centroid_f_wrt_wholebrain`: 3-array, initial shift of the fixed volume, relative to the wholebrain origin.
+* (4,4) matrix: the 4x4 matrix that represents the transform.
+* (3,4) matrix: first three rows of the full 4x4 matrix.
+* (12,) array: flattened array of the first three rows of the full 4x4 matrix.
+
 
 Annotation
 =========
 
-There are three types of annotations (points, 2D polygons, 3D volumes). Each stack usually has one of each type.
-They are stored as HDF tabular files. Each row represents one point/polygon/volume.
+There are three types of annotations (points, 2D polygons, 3D volumes). They are stored as HDF tabular files. Each row represents one point, polygon or volume.
 
-## 2-D Polygons
+## 2-D Polygons 
+
+These include points which are single vertex polygons.
 
 Each row of the contour annotation file is indexed by a random `contour_id`. The columns are
 

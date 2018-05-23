@@ -1,3 +1,42 @@
+# Registration specs and brain specs
+
+A _registration_spec_ specifies:
+  - stack_m: dict, moving brain spec
+  - stack_f: dict, fixed brain spec
+  - warp_setting: int, registration setting id
+
+A _brain_spec_ specifies:
+- name: brain name
+- vol_type: volume type
+- structure: str or list. If list, these structures are transformed as an integral group.
+- resolution: 
+- detector_id: mandatory if vol_type is "score".
+
+See `example_fixed_brain_spec.json` for an example.
+
+# Registration settings
+A set of registration settings are defined in `registration/registration_settings.csv`
+
+Each registration setting specifies:
+- warp_id
+- upstream_warp_id
+- transform_type: rigid or affine, or bspline
+- grad_computation_sample_number
+- grid_search_sample_number
+- std_tx_um
+- std_ty_um
+- std_tz_um
+- std_theta_xy_degree
+- surround_weight
+- regularization_weight
+- terminate_thresh_trans
+- terminate_thresh_rot
+- history_len
+- max_iter_num
+- learning_rate_trans
+- learning_rate_rot
+- comment
+
 
 ## Local registration
 
@@ -9,25 +48,8 @@ Structures are further adjusted either individually or in groups.
 
 Also see [Explanation of registration results](FileOrganization.md)
 
+
 # Using `Aligner` class
-
-A _registration_spec_ specifies:
-  - stack_m: dict, moving brain spec
-  - stack_f: dict, fixed brain spec
-  - warp_setting: int, warp setting
-
-A _brain_spec_ specifies:
-- name: brain name
-- vol_type: volume type
-- structure: str or list. If list, these structures are transformed as an integral group.
-- resolution: 
-- detector_id: mandatory if vol_type is "score".
-
-See `example_fixed_brain_spec.json` for an example.
-
-## Registration settings
-
-`registration/registration_settings.csv`
 
 ## Run registration
 - Generate parameters based on the registration specification, using `generate_aligner_parameters_v2`
@@ -47,3 +69,5 @@ See `example_fixed_brain_spec.json` for an example.
 - Load original moving volumes using `DataManager.load_original_volume_v2`.
 - Transform moving volumes using `transform_volume_v4`
 - Save transformed volumes using `DataManager.save_transformed_volume_v2`.
+
+

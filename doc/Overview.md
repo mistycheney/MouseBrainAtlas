@@ -11,7 +11,14 @@ Tissues must also be counter-stained for Nissl to demonstrate cytoarchitecture. 
 - thionin (brightfield) 
 - [Neurotrace Blue](https://www.thermofisher.com/order/catalog/product/N21479) (fluorescent)
 
-Our experiments used ~20 brains, prepared by Partha Mitra's lab in Cold Spring Harbor Laboratory and David Kleinfeld's lab in UCSD. [Complete list of brains](https://docs.google.com/spreadsheets/d/1QHW_hoMVMcKMEqqkzFnrppu8XT92BPdIagpSqQMAJHA/edit?usp=sharing)
+Development and validation used ~20 brains, prepared by Partha Mitra's lab in Cold Spring Harbor Laboratory and David Kleinfeld's lab in UCSD. [Complete list of brains](https://docs.google.com/spreadsheets/d/1QHW_hoMVMcKMEqqkzFnrppu8XT92BPdIagpSqQMAJHA/edit?usp=sharing)
+
+Code
+==========
+
+[Github Repository](https://github.com/mistycheney/MouseBrainAtlas)
+
+Most of the code is written in Python. IPython notebooks are used for development. Most essential functionalities are then converted to executable scripts.
 
 
 Reference

@@ -1,7 +1,6 @@
 This page describes the location of the raw input and intermediate data.
 
-Data Path
-============
+The storage locations of different types of data are specified by the following global variables:
 
 - `REPO_DIR`: default to `/home/yuncong/Brain/`
 - `DATA_DIR`: default to `CSHL_data_processed`
@@ -16,8 +15,7 @@ Data Path
 - `REGISTRATION_VIZ_ROOTDIR`
 - `MXNET_MODEL_ROOTDIR`
 
-
-Data are stored in two places:
+Data are stored long-term in two places:
 - Lab server `birdstore.dk.ucsd.edu` under `/brainbucket/data/Active_Atlas_Data/`. 
   - Raw images are stored in folders that correspond to the scanner used, e.g. `UCSD_AxioScanner/CSHL2_2018-04-04`.
   - Processed images and other data are stored in `CSHL_data_processed` and other folders.

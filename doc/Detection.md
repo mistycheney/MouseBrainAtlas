@@ -8,7 +8,7 @@ Output is under `/data/CSHL_patch_features/inception-bn-blue/<brain>/<brain>_pre
 - `<image_name>_prep2_none_win7_inception-bn-blue_features.bp`: feature vectors. n x 1024 array (float), each row is the feature at one location.
 - `<image_name>_prep2_none_win7_inception-bn-blue_locations.bp`: location of each feature. n x 2(?) array (int), each row is (x,y,??)
 
-Reference: `learning/compute_features_for_entire_stacks.ipynb`
+Notebook: `learning/compute_features_for_entire_stacks.ipynb`
 
 ## Simple global registration
 
@@ -38,4 +38,4 @@ Run `learning/from_images_to_score_volumes.py <brain_name> <detector_id> --struc
     - `<brain_name>_detector<detector_id>_10.0um_scoreVolume_<structure>_gradients.bp`. 
     - `<brain_name>_detector<detector_id>_10.0um_scoreVolume_<structure>_gradients_origin_wrt_wholebrain.txt`. **(TODO: DEBUG)**
 
-Reference: `learning/from_images_to_score_volume.ipynb`
+Notebook: `learning/from_images_to_score_volume.ipynb`

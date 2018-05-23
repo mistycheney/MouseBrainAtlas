@@ -162,3 +162,11 @@ You are only required to draw such initial contours on 5-10 sections where the e
 4. Click on each submask contour to toggle whether the submask is valid or not. If the auto-generated submasks are not accurate, you can also create new submasks by drawing on the images. Submasks of all sections that are modified are stored in `<stack>_submasks_modified`. Once done, click "Save masks". The final masks as binary images are generated in `<stack>_prep1_thumbnail_mask`.
 5. Click "Crop" button to generate cropped versions of the masks. They are stored in `<stack>_prep2_thumbnail_mask`.
 
+
+## Generate 3-D intensity volume #
+
+Run `reconstruct/construct_intensity_volume.py [--tb_version <tb_version>] [--tb_resol <tb_resol>] [--output_resol <output_resol>]`
+
+Output is at `/CSHL_volumes/<brain_name>/<brain_name>_wholebrainWithMargin_10.0um_intensityVolume/`.
+
+Reference: `reconstruct/construct_intensity_volume_v3.ipynb`

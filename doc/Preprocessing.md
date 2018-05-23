@@ -25,7 +25,6 @@ It is important to use only one composition rule for each brain. **Do not use sp
 
 ## Convert raw data to TIFs
 - jp2 -> raw
-- raw -> raw_Ntb:
 
 ## For thionin (brightfield) data
 * raw -> thumbnail
@@ -50,6 +49,7 @@ _prep2_raw_gray_ are used for structure detection.
 _prep5_raw_ will be published online.
 
 ## For Neurotrace (fluorescent) data
+- raw -> raw_Ntb:
 * raw_Ntb -> thumbnail_Ntb
 * thumbnail_Ntb -> thumbnail_NtbNormalized: 0.1s/section
 * **Compute transforms using thumbnail_NtbNormalized**

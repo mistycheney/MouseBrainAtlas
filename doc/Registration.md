@@ -11,7 +11,19 @@ Also see [Explanation of registration results](FileOrganization.md)
 
 # Using `Aligner` class
 
-- First prepare the registration specification.
+A _registration_spec_ specifies:
+  - stack_m: dict, moving brain spec
+  - stack_f: dict, fixed brain spec
+  - warp_setting: int, warp setting
+
+A _brain_spec_ specifies:
+- name: brain name
+- vol_type: volume type
+- structure: str or list. If list, these structures are transformed as an integral group.
+- resolution: 
+- detector_id: mandatory if vol_type is "score".
+
+See `example_fixed_brain_spec.json` for an example.
 
 ## Registration settings
 

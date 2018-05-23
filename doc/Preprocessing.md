@@ -1,6 +1,6 @@
 [Complete list of brains](https://docs.google.com/spreadsheets/d/1QHW_hoMVMcKMEqqkzFnrppu8XT92BPdIagpSqQMAJHA/edit?usp=sharing)
 
-The sections must be sagittal.
+Sections must be sagittal.
 
 # Convert raw data to TIFs
 ## CSHL data
@@ -11,16 +11,20 @@ CSHL did the segmentation and sent us images of individual sections re-encoded a
 (Note: we do not have the segmentation code at this moment.) 
 
 ### Convert JPEG2000 to TIF
-Use [Kakadu](http://kakadusoftware.com/downloads/). Run `export LD_LIBRARY_PATH=<kdu_dir>:$LD_LIBRARY_PATH; <kdu_bin> -i <in_fp> -o <out_fp>`
+Use [Kakadu](http://kakadusoftware.com/downloads/). Run `export LD_LIBRARY_PATH=<kdu_dir>:$LD_LIBRARY_PATH; <kdu_bin> -i <in_fp> -o <out_fp>`.
+
 Output are 8-bit (thionin) or 16-bit (fluorescent) TIFFs.
 
 ## UCSD data
 UCSD data are acquired using Zeiss Axioscan (0.325 micron/pixel).
 Raw data from the scanner are CZI files. In these files individual sections are recorded as different scenes.
 
-### Convert CZI files
+### Convert CZI to TIFF
 Use [CZItoTIFFConverter](http://cifweb.unil.ch/index.php?option=com_content&task=view&id=152&Itemid=2) ([user manual](https://www.unige.ch/medecine/bioimaging/files/7814/3714/1634/CZItoTIFFConverter.pdf)).
-Setting ??
+
+Use the graphical interface with the following settings:
+??
+
 Output are 8-bit (thionin) or 16-bit (fluorescent) TIFFs.
 
 # Rectify the images

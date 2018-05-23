@@ -1,7 +1,3 @@
-[Complete list of brains](https://docs.google.com/spreadsheets/d/1QHW_hoMVMcKMEqqkzFnrppu8XT92BPdIagpSqQMAJHA/edit?usp=sharing)
-
-Sections must be sagittal.
-
 # Naming convention for processed images #
 
 Every processed image can be uniquely identified by the following information:

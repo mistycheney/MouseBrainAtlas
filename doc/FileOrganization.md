@@ -44,16 +44,13 @@ It is important to use only one composition rule for each brain. **Do not use sp
 
 ## Transfer files to/from AWS S3
 
-Here are the instructions for downloading one stack MD585 (~300 sections) from AWS. 
-
 Method 1 (recommended): Use [CrossFTP](http://www.crossftp.com/).
 
 Method 2: Using command-line tool
 1. Install the aws command-line tool https://aws.amazon.com/cli/
 2. Run "aws configure", enter the Access Key ID and Secret Access Key in the csv file (`datauser_credentials.csv`). Set region to "us-west-1".
 3. To download images of a stack, run "aws s3 cp --recursive s3://mousebrainatlas-data/CSHL_data_processed/MD585/MD585_prep2_lossless_jpeg <local_folder>". 
-
-To upload, run `aws s3 cp <local_filepath> s3://mousebrainatlas-data/<s3_filepath>`
+4. To upload, run `aws s3 cp <local_filepath> s3://mousebrainatlas-data/<s3_filepath>`
 
 Method 3: Using web console (This method cannot download the whole folder)
 1. Go to https://mousebrainatlas.signin.aws.amazon.com/console
@@ -68,8 +65,6 @@ password: <no passwords in github>
 
 ## Reconstructed volumes or virtual sections
 Collection of images representing virtual sections in all three directions (sagittal, coronal and horizontal).
-
-
 
 Meta data
 ===

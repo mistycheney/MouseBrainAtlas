@@ -27,9 +27,9 @@ Use the graphical interface with the following settings:
 
 Output are 8-bit (thionin) or 16-bit (fluorescent) TIFFs.
 
-# Rectify the images
+# Rectify images
 
-The images must have the anterior at the left and the posterior at the right.
+The images must have anterior at the left, posterior at the right, dorsal at the top and ventral at the bottom.
 
 # Preprocessing a new stack
 

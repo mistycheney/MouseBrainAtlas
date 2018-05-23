@@ -1,6 +1,6 @@
 This page describes the location of the raw input and intermediate data.
 
-The storage locations of different types of data are specified by the following global variables:
+The storage locations of different types of data are specified by the following global variables in `global_setting.py`:
 
 - `REPO_DIR`: default to `/home/yuncong/Brain/`
 - `DATA_DIR`: default to `CSHL_data_processed`

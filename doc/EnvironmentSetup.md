@@ -6,8 +6,9 @@
 This will download the scripts and the package containing the reference anatomical model and the trained texture classifiers.
 
 Edit `global_setting.py`. In particular, specify the following variables:
-- `DATA_DIR`
-- `REPO_DIR`
+- `DATA_DIR`: default to `CSHL_data_processed`
+- `REPO_DIR`: default to `/home/yuncong/Brain/`
+- `VOLUME_ROOTDIR`
 
 # Using iPython Notebook Server
 

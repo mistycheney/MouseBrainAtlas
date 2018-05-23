@@ -5,8 +5,8 @@ Data
 
 [Complete list of brains](https://docs.google.com/spreadsheets/d/1QHW_hoMVMcKMEqqkzFnrppu8XT92BPdIagpSqQMAJHA/edit?usp=sharing)
 
-This system works with sagittal series labeled with markers such as:
-- cell type marker, e.g. ChAT
+Input data are sagittal series labeled with markers such as:
+- cell type marker, e.g. Choline Acetyltransferase (ChAT)
 - neuronal tracers, e.g. pseudo-rabies and delta-G rabies
 
 Tissues must also be counter-stained for Nissl to demonstrate cytoarchitecture. Possible Nissl stains include:

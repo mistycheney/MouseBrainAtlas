@@ -1,7 +1,7 @@
 # User Guide
 - [Overview](Overview.md)
 - [Data Description](DataDescription.md)
-- [File Organization](FileOrganization.md)
+- [Data Organization](FileOrganization.md)
 - [Environment Setup](EnvironmentSetup.md)
 - [Preprocessing](Preprocessing.md)
 - [Registration](Registration.md)

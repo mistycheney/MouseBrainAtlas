@@ -1223,7 +1223,7 @@ def actor_volume(volume, what, auxdata=None, origin=(0,0,0), c=(1,1,1), tb_color
         # return volume
 
     else:
-        sys.stderr.write('Color/opacity profile not recognized.\n')
+        raise Exception('Color/opacity profile not recognized.')
 
     # volumeProperty.ShadeOff()
     volumeProperty.SetColor(color)

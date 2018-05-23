@@ -10,4 +10,4 @@
 - [Build Atlas](BuildAtlas.md)
 - [Train Classifiers](TrainClassifiers.md)
 - [Using the Graphical Interface](GUIGuide.md)
-- [Timing](Timing)
+- [Timing](Timing.md)

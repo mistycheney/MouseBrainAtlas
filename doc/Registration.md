@@ -7,7 +7,7 @@ Structures are further adjusted either individually or in groups.
 
 `$ ./register.py <transform_spec>`
 
-Also see [Explanation to registration results](FileOrganization.md)
+Also see [Explanation of registration results](FileOrganization.md)
 
 # Using `Aligner` class
 

@@ -3,10 +3,26 @@ Code
 
 [Github repository](https://github.com/mistycheney/MouseBrainAtlas)
 
+Data Path
+============
+
+- `REPO_DIR`: default to `/home/yuncong/Brain/`
+- `DATA_DIR`: default to `CSHL_data_processed`
+- `VOLUME_ROOTDIR`: 
+- `MESH_ROOTDIR`:
+- `REGISTRATION_PARAMETERS_ROOTDIR`:
+- `PATCH_FEATURES_ROOTDIR`:
+- `ANNOTATION_ROOTDIR`:
+- `CLF_ROOTDIR`:
+- `SCOREMAP_ROOTDIR`:
+- `SCOREMAP_VIZ_ROOTDIR`:
+- `REGISTRATION_VIZ_ROOTDIR`
+- `MXNET_MODEL_ROOTDIR`
+
 Image data
 ==========
 
-Raw and processed data are stored in two places:
+Raw and processed images are stored in two places:
 - Lab server `birdstore.dk.ucsd.edu` under `/brainbucket/data/Active_Atlas_Data/`. 
   - Raw data are stored in folders that correspond to the scanner used, e.g. `UCSD_AxioScanner/CSHL2_2018-04-04`.
   - Processed data are stored in `CSHL_data_processed` and other folders.
@@ -38,123 +54,8 @@ It is important to use only one composition rule for each brain. **Do not use sp
 
 Processed images are under `$DATA_ROOTDIR`. The path to each processed image follows the pattern `<stack>/<stack>_prep<prep_id>_<resol>_<version>/<image_name>_prep<prep_id>_<resol>_<version>.<ext>`.
 
-## Transfer files to/from birdstore
-
-- Download folders: `scp -r <username>@birdstore.dk.ucsd.edu:<server_data_dir> <local_data_dir>`
-- Download files: `scp <username>@birdstore.dk.ucsd.edu:<server_file_path> <local_data_dir>/`
-- Upload folders: `scp -r <local_data_dir>/ <username>@birdstore.dk.ucsd.edu:<server_data_dir>`
-- Upload files: `scp <local_file_dir>/ <username>@birdstore.dk.ucsd.edu:<server_data_dir>/`
-
-## Transfer files to/from AWS S3
-
-Method 1 (recommended): Use [CrossFTP](http://www.crossftp.com/).
-
-Method 2: Using command-line tool
-1. Install the aws command-line tool https://aws.amazon.com/cli/
-2. Run "aws configure", enter the Access Key ID and Secret Access Key in the csv file (`datauser_credentials.csv`). Set region to "us-west-1".
-3. To download images of a stack, run "aws s3 cp --recursive s3://mousebrainatlas-data/CSHL_data_processed/MD585/MD585_prep2_lossless_jpeg <local_folder>". 
-4. To upload, run `aws s3 cp <local_filepath> s3://mousebrainatlas-data/<s3_filepath>`
-
-Method 3: Using web console (This method cannot download the whole folder)
-1. Go to https://mousebrainatlas.signin.aws.amazon.com/console
-2. Login as 
-username: datauser
-password: <no passwords in github>
-3. Choose "S3"
-4. The data are in the bucket called "mousebrainatlas-data". 
-5. Click on a file and click "Download".
 
 **Yoav:** This data needs to be reorganized in an image storage to allow fast retrieval of individual sections and parts of sections.
 
 ## Reconstructed volumes or virtual sections
 Collection of images representing virtual sections in all three directions (sagittal, coronal and horizontal).
-
-
-Volume data
-=======
-
-A volume is represented by:
-- a 3-D array stored as `bp` file.
-- a (3,) int array representing the origin of this array with respect to _wholebrain_ (see [Definition of frames]), stored as `txt` file.
-
-## Volume type
-Three volume types are defined, each with a different 3-d array data type:
-- `annotationAsScore`: float, binary either 0 or 1
-- `score`: float between 0 and 1
-- `intensity`: uint8
-
-
-Registration results
-===========
-
-A transform can be expressed in any of the following ways:
-
-* dictionary
-  - `parameters`: 12-array, flattened version of the rigid or affine 3x4 matrix.
-  - `centroid_m_wrt_wholebrain`: 3-array, initial shift of the moving volume, relative to the wholebrain origin.
-  - `centroid_f_wrt_wholebrain`: 3-array, initial shift of the fixed volume, relative to the wholebrain origin.
-* (4,4) matrix: the 4x4 matrix that represents the transform.
-* (3,4) matrix: first three rows of the full 4x4 matrix.
-* (12,) array: flattened array of the first three rows of the full 4x4 matrix.
-
-For each registration, the following results are stored:
-- `<registration_identifier>_parameters.json`: contains three keys `centroid_f_wrt_wholebrain`((3,)-array), `centroid_m_wrt_wholebrain`((3,)-array) and `parameters`((12,)-array).
-- `<registration_identifier>_scoreHistory.bp`: the score history as a list
-- `<registration_identifier>_scoreEvolution.png`: plot of the score over iterations
-- `<registration_identifier>_trajectory.bp`: trajectory of the parameters during optimization, a list of 12 parameters.
-
-Mathematically, a transform is expressed as:
-
-q - q0 = R * T0(p-p0) + t
-
-- `p` is a point in moving brain (wrt wholebrain in the case of a subject brain, or canonicalAtlasSpace in the case of atlas)
-- `p0` is the rotation center defined on moving brain.
-- `q` is a point in fixed brain (wrt wholebrain)
-- `q0` is the shift of fixed brain.
-- `R`, the 3x3 rotation matrix, which is part of the computed transform.
-- `t`, 3-array, which is part of the computed transform.
-- `T0` is the initial transform. 
-
-
-Annotation
-=========
-
-There are three types of annotations (points, 2D polygons, 3D volumes). Each stack usually has one of each type.
-They are stored as HDF tabular files. Each row represents one point/polygon/volume.
-
-## 2-D Polygons
-
-Each row of the contour annotation file is indexed by a random `contour_id`. The columns are
-
-* `class`: "contour" or "neuron"
-* `creator`: username of the creator
-* `downsample`: the downsample factor the vertices are defined on
-* `edits`: the list of edits made on this contour
-* `id`: a random uuid for this contour
-* `label_position`: the position of the structure name text item relative to the whole image
-* `name`: unsided name of this structure
-* `orientation`: sagittal, coronal or horizontal
-* `parent_structure`: currently not used
-* `section`: the section number
-* `side`: L or R
-* `side_manually_assigned`: True if the side is confirmed by human; False if the side is automatically inferred.
-* `time_created`: the time that the contour is created
-* `type`: "intersected" if this contour is the result of interpolation or "confirmed" if confirmed by human
-* `vertices`: vertices of a polygon. (n,2)-ndarray. wrt "prep2" crop, in unit of pixel at full resolution (~0.45 microns).
-* `filename`: the file name of the section.
-
-## 3-D Structures
-
-Each row of this file contains information for one 3-D structure.
-The columns are:
-- `edits`: list of edit operations. Each operation is represented by a dict with the following keys:
-  - `timestamp`: the time this edit is made
-  - `transform`: 3x4 matrix representing the transform
-  - `type`: one of _global_rotate3d_, _prob_shift3d_, _prob_rotate3d_
-  - `username`: user who made this edit
-- `name`: name of the structure
-- `origin`: 3-D origin of the volume with respect to wholebrain frame, in unit of voxels.
-- `resolution`: a string representing voxel size
-- `side`: L or R or S (singular)
-- `volume`: the 3-D volume encoded by bloscpack as string
-

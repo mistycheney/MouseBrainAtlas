@@ -1,7 +1,10 @@
 # Detection
 
-## Compute the features at sparse locations on each image.
-`learning/compute_features_for_entire_stacks.ipynb`
+## Compute the features on a grid for every image.
+
+Run `learning/compute_features.py <brain_name> [--section <section_number>]`
+
+Reference: `learning/compute_features_for_entire_stacks.ipynb`
 
 ## Simple global registration
 Use the GUI to select the 2D center of 12N and 3N(either L or R). Then

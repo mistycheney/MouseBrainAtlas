@@ -16,7 +16,12 @@ Three volume types are defined, each with a different 3-d array data type:
 
 # Mesh
 
-Visualize meshes using [slicer](https://download.slicer.org/).
+Meshes are stored as STL files.
+An STL file contains 
+- 3-D coordinates of the vertices 
+- a (n,3)-list of vertex indices; each row represents a triangular face.
+
+STL files can be visualized using [slicer](https://download.slicer.org/).
 
 STL files are under:
 - Subject.

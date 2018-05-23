@@ -1,7 +1,7 @@
 {
 "name":"MD661", 
 "vol_type": "score", 
-"structure":["12N"],
+"structure":["3N", "4N"],
 "resolution":"10.0um",
 "detector_id":799
 }

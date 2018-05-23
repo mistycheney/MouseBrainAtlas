@@ -90,5 +90,3 @@ The columns are:
 - `resolution`: a string representing voxel size
 - `side`: L or R or S (singular)
 - `volume`: the 3-D volume encoded by bloscpack as string
-
-## Point markers

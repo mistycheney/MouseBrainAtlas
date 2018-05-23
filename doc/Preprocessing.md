@@ -1,5 +1,7 @@
 [Complete list of brains](https://docs.google.com/spreadsheets/d/1QHW_hoMVMcKMEqqkzFnrppu8XT92BPdIagpSqQMAJHA/edit?usp=sharing)
 
+The sections must be sagittal.
+
 # Convert raw data to TIFs
 ## CSHL data
 Data from CSHL are acquired using Nanozoomer (0.46 micron/pixel).
@@ -17,13 +19,13 @@ UCSD data are acquired using Zeiss Axioscan (0.325 micron/pixel).
 Raw data from the scanner are CZI files. In these files individual sections are recorded as different scenes.
 
 ### Convert CZI files
-Use`CZItoTIFFConverter` ([download link](http://cifweb.unil.ch/index.php?option=com_content&task=view&id=152&Itemid=2), [user manual](https://www.unige.ch/medecine/bioimaging/files/7814/3714/1634/CZItoTIFFConverter.pdf)).
+Use [CZItoTIFFConverter](http://cifweb.unil.ch/index.php?option=com_content&task=view&id=152&Itemid=2) ([user manual](https://www.unige.ch/medecine/bioimaging/files/7814/3714/1634/CZItoTIFFConverter.pdf)).
 Setting ??
 Output are 8-bit (thionin) or 16-bit (fluorescent) TIFFs.
 
-The raw images must be of sagittal sections, with the anterior at the left and the posterior at the right.
+# Rectify the images
 
-
+The images must have the anterior at the left and the posterior at the right.
 
 # Preprocessing a new stack
 

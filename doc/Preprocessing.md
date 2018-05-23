@@ -2,6 +2,9 @@
 
 Sections must be sagittal.
 
+# Naming convention for processed images #
+Processed images are under `$DATA_ROOTDIR`. The path to each processed image follows the pattern `<stack>/<stack>_prep<prep_id>_<resol>_<version>/<image_name>_prep<prep_id>_<resol>_<version>.<ext>`.
+
 # Convert raw data to TIFs
 ## CSHL data
 Data from CSHL are acquired using Nanozoomer (0.46 micron/pixel).

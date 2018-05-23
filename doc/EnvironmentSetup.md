@@ -9,7 +9,7 @@ Edit `global_setting.py`. In particular, specify the following variables:
 - `DATA_DIR`
 - `REPO_DIR`
 
-# Launch iPython Notebook Server
+# Using iPython Notebook Server
 
 If using AWS, 
 - On your local machine, run:

@@ -3,8 +3,6 @@ This system automatically aligns histological series to a standard atlas by iden
 Data
 =========
 
-[Complete list of brains](https://docs.google.com/spreadsheets/d/1QHW_hoMVMcKMEqqkzFnrppu8XT92BPdIagpSqQMAJHA/edit?usp=sharing)
-
 Input data are sagittal series labeled with markers such as:
 - cell type marker, e.g. Choline Acetyltransferase (ChAT)
 - neuronal tracers, e.g. pseudo-rabies and delta-G rabies
@@ -12,6 +10,8 @@ Input data are sagittal series labeled with markers such as:
 Tissues must also be counter-stained for Nissl to demonstrate cytoarchitecture. Possible Nissl stains include:
 - thionin (brightfield) 
 - [Neurotrace Blue](https://www.thermofisher.com/order/catalog/product/N21479) (fluorescent)
+
+Our experiments used data prepared by Partha Mitra's lab in Cold Spring Harbor Laboratory and David Kleinfeld's lab in UCSD. [Complete list of brains](https://docs.google.com/spreadsheets/d/1QHW_hoMVMcKMEqqkzFnrppu8XT92BPdIagpSqQMAJHA/edit?usp=sharing)
 
 
 Reference

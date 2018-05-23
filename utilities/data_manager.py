@@ -4425,6 +4425,9 @@ class DataManager(object):
         Returns:
             Absolute path of the image directory.
         """
+        
+        if prep_id is not None and isinstance(prep_id, str):
+            prep_id = prep_str_to_id_2d[prep_id]
 
         if version is None:
             if resol == 'thumbnail' or resol == 'down64':

@@ -1,0 +1,21 @@
+detector_id,input_version,windowing_id,feature_network,feature_classifier_id,comments
+1,gray,1,inception-bn-blue,38
+2,grayL500H0,1,inception-bn-blue,38
+3,grayL1000H0,1,inception-bn-blue,38
+4,grayL1500H0,1,inception-bn-blue,38
+5,grayL2000H0,1,inception-bn-blue,38
+6,grayL2500H0,1,inception-bn-blue,38
+7,grayL600H0,1,inception-bn-blue,38
+8,grayL700H0,1,inception-bn-blue,38
+9,grayL800H0,1,inception-bn-blue,38
+10,grayL900H0,1,inception-bn-blue,38
+12,grayDefault,4,inception-bn-blue,72
+13,grayDefault,5,inception-bn-blue,73
+14,grayDefault,5,inception-bn-blue,72
+15,gray,5,inception-bn-blue,73
+16,gray,6,inception-bn-blue,130,twice as large patches
+17,grayDefault,7,inception-bn-blue,73,for neurotrace data matched to CSHL nissl; For example applied to ucsd chat neurotrace that is matched to cshl ntb and further to cshl nissl
+18,grayDefault,7,inception-bn-blue,38,for neurotrace data matched to CSHL nissl; For example applied to ucsd chat neurotrace that is matched to cshl ntb and further to cshl nissl
+19,gray,7,inception-bn-blue,73
+998,normalized_-1_5,7,inception-bn-blue,998,trained using normalized MD589/MD594/MD585 with 500um margin for negatives
+999,normalized_-1_5,7,inception-bn-blue,999,trained from auto-aligned MD661/MD662 before correction

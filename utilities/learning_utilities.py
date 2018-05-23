@@ -821,7 +821,7 @@ def extract_patches_given_locations(patch_size,
             else:
                 raise Exception("Must specify whether image is Nissl by providing is_nissl.")
 
-        if stack in ['CHATM2', 'CHATM3']:
+        if stack in ['CHATM2', 'CHATM3', 'MD661', 'MD662', 'MD658']:
             img = DataManager.load_image_v2(stack=stack, section=sec, fn=fn, prep_id=prep_id, version='NtbNormalizedAdaptiveInvertedGamma')
         elif stack in all_nissl_stacks:
             # img = img_as_ubyte(rgb2gray(DataManager.load_image_v2(stack=stack, section=sec, fn=fn, prep_id=prep_id, version=version)))
@@ -3204,25 +3204,26 @@ def draw_scoremap(clfs, scheme, stack, win_id, prep_id=2,
     scoremap_local_region_all_clfs = {}
     
     if return_what == 'both' or return_what == 'viz':
-
+        
         t = time.time()
         if bg_img_local_region is None:
             if bg_img is None:
-                if stack in ['CHATM2', 'CHATM3']:
+                if stack in ['CHATM2', 'CHATM3', 'MD661', 'MD662', 'MD658']:
                     bg_img = DataManager.load_image_v2(stack=stack, prep_id=prep_id, version='NtbNormalizedAdaptiveInvertedGammaJpeg', fn=fn, resol='raw')
                 else:
                     bg_img = DataManager.load_image_v2(stack=stack, prep_id=prep_id, version='grayJpeg', fn=fn, resol='raw')
-
-            bg_img_local_region = bg_img[roi_ymin:(roi_ymin+roi_h), roi_xmin:(roi_xmin+roi_w)]
+        bg_img_local_region = bg_img[roi_ymin:(roi_ymin+roi_h), roi_xmin:(roi_xmin+roi_w)]
         sys.stderr.write('Load background image: %.2f seconds\n' % (time.time() - t))
 
-        t = time.time()
-        bg_img_local_region_outResol = rescale(bg_img_local_region, 1./out_downscale)
-        sys.stderr.write('Rescale background image to output resolution: %.2f seconds\n' % (time.time() - t))
+        if return_wholeimage:
+            t = time.time()
+            bg_img_outResol = rescale(bg_img, 1./out_downscale)
+            sys.stderr.write('Rescale background image to output resolution: %.2f seconds\n' % (time.time() - t))
+        else:
+            t = time.time()
+            bg_img_local_region_outResol = rescale(bg_img_local_region, 1./out_downscale)
+            sys.stderr.write('Rescale background image to output resolution: %.2f seconds\n' % (time.time() - t))
 
-        bg_img_outResol = rescale(bg_img, 1./out_downscale)
-    
-    
     for name, clf in clfs.iteritems():
 
         t = time.time()
@@ -3235,7 +3236,32 @@ def draw_scoremap(clfs, scheme, stack, win_id, prep_id=2,
                                      downscale=out_downscale)
         sys.stderr.write('Resample scoremap %s: %.2f seconds\n' % (name, time.time() - t))
 
-        if not return_wholeimage:
+        if return_wholeimage:
+            scoremap_local_region_all_clfs[name] = scoremap
+            
+            if return_what == 'scoremap':
+                return scoremap_local_region_all_clfs
+            
+            elif return_what == 'both' or return_what == 'viz':
+                t = time.time()
+                scoremap_viz = scoremap_overlay_on(bg=bg_img_outResol,
+                                                   stack=stack,
+                                                   out_downscale=out_downscale,
+                                                   in_downscale=out_downscale,
+                                                   fn=fn,
+                                                   scoremap=scoremap,
+                                                  in_scoremap_downscale=out_downscale,
+                                                  cmap_name= 'jet')
+                sys.stderr.write('Generate scoremap overlay image %s: %.2f seconds\n' % (name, time.time() - t))
+
+                scoremap_viz_all_clfs[name] = scoremap_viz
+
+                if return_what == 'both':
+                    return scoremap_viz_all_clfs, scoremap_local_region_all_clfs
+                else:
+                    return scoremap_viz_all_clfs
+                
+        else:
             
             scoremap_local_region = \
             scoremap[int(np.round(roi_ymin/out_downscale)):int(np.round((roi_ymin+roi_h)/out_downscale)),
@@ -3262,33 +3288,7 @@ def draw_scoremap(clfs, scheme, stack, win_id, prep_id=2,
                 if return_what == 'both':
                     return scoremap_viz_all_clfs, scoremap_local_region_all_clfs
                 else:
-                    return scoremap_viz_all_clfs
-
-        else:
-            
-            scoremap_local_region_all_clfs[name] = scoremap
-            
-            if return_what == 'scoremap':
-                return scoremap_local_region_all_clfs
-            
-            elif return_what == 'both' or return_what == 'viz':
-                t = time.time()
-                scoremap_viz = scoremap_overlay_on(bg=bg_img_outResol,
-                                                   stack=stack,
-                                                   out_downscale=out_downscale,
-                                                   in_downscale=out_downscale,
-                                                   fn=fn,
-                                                   scoremap=scoremap,
-                                                  in_scoremap_downscale=out_downscale,
-                                                  cmap_name= 'jet')
-                sys.stderr.write('Generate scoremap overlay image %s: %.2f seconds\n' % (name, time.time() - t))
-
-                scoremap_viz_all_clfs[name] = scoremap_viz
-
-                if return_what == 'both':
-                    return scoremap_viz_all_clfs, scoremap_local_region_all_clfs
-                else:
-                    return scoremap_viz_all_clfs
+                    return scoremap_viz_all_clfs            
 
             
 def plot_result_wrt_ntrain(test_metrics_all_ntrain, ylabel='', title=''):

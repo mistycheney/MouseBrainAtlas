@@ -22,7 +22,7 @@ Reference: `3d/build_atlas_from_aligned_annotated_brains_v6.ipynb`
     
 ##  Put average shape at average position
 
-- Atlas structures. 
+- Atlas structures (located in _canonicalAtlasSpace_). 
     - `/CSHL_volumes/<atlas_name>/<atlas_name>_10.0um_scoreVolume/score_volumes/<atlas_name>_10.0um_scoreVolume_<sided_or_surround_structure>.bp`.
     - `/CSHL_volumes/<atlas_name>/<atlas_name>_10.0um_scoreVolume/score_volumes/<atlas_name>_10.0um_scoreVolume_<sided_or_surround_structure>_origin_wrt_canonicalAtlasSpace.txt`.
 

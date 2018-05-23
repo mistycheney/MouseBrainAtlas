@@ -1,4 +1,4 @@
-# Topics
+# User Guide
 - [Overview](Overview.md)
 - [Data Description](DataDescription.md)
 - [File Organization](FileOrganization.md)

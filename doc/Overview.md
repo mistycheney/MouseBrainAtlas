@@ -1,6 +1,6 @@
 This system automatically aligns histological series to a standard atlas by identification of cyto-architectural landmarks. The goal is to enable mapping of cell markers across brains.
 
-Data
+Input Data
 =========
 
 Input data are sagittal series labeled with markers such as:
@@ -12,6 +12,16 @@ Tissues must also be counter-stained for Nissl to demonstrate cytoarchitecture. 
 - [Neurotrace Blue](https://www.thermofisher.com/order/catalog/product/N21479) (fluorescent)
 
 Development and validation used ~20 brains, prepared by Partha Mitra's lab in Cold Spring Harbor Laboratory and David Kleinfeld's lab in UCSD. [Complete list of brains](https://docs.google.com/spreadsheets/d/1QHW_hoMVMcKMEqqkzFnrppu8XT92BPdIagpSqQMAJHA/edit?usp=sharing)
+
+Atlas Data
+==================
+
+
+
+Intermediate Data
+==================
+
+
 
 Code
 ==========

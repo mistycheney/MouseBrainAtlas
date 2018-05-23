@@ -169,4 +169,4 @@ Run `reconstruct/construct_intensity_volume.py [--tb_version <tb_version>] [--tb
 
 Output is at `/CSHL_volumes/<brain_name>/<brain_name>_wholebrainWithMargin_10.0um_intensityVolume/`.
 
-Reference: `reconstruct/construct_intensity_volume_v3.ipynb`
+Notebook: `reconstruct/construct_intensity_volume_v3.ipynb`

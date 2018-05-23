@@ -5,6 +5,9 @@
 - [Registration](Registration.md)
 - [Detection](Detection.md)
 - [Visualization](Visualization.md)
+- [Build Atlas](BuildAtlas.md)
+- [Train Classifiers](TrainClassifiers.md)
+
 
 # Software installation
 

@@ -1,3 +1,14 @@
+
+# Software installation
+
+`$ pip install activeatlas`
+
+This will download the scripts and the package containing the reference anatomical model and the trained texture classifiers.
+
+Edit `global_setting.py` to specify global data path variables.
+
+# Using iPython Notebook Server
+
 If using AWS, 
 - On your local machine, run:
 `cfncluster --config <config> create <clusterName>`.

@@ -1,6 +1,7 @@
 # Topics
 - [Overview](Overview.md)
 - [Data Organization](FileOrganization.md)
+- [Environment Setup](InitialSetup.md)
 - [Preprocessing](Preprocessing.md)
 - [Registration](Registration.md)
 - [Detection](Detection.md)

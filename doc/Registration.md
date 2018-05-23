@@ -43,9 +43,14 @@ Each setting specifies the following parameters:
 
 Run `registration/register_brain.py <fixed_brain_spec_json> <moving_brain_spec_json> <registration_setting_id> [--use_simple_global]`
 
-Output is stored at
+Generated registration results are stored at
 `CSHL_registration_parameters/<atlas_name>/<atlas_name>_10.0um_scoreVolume_<moving_structures>_warp<registration_id>_<fixed_brain>_detector<detector_id>_10.0um_scoreVolume_<fixed_structures>`.
 Also see [Explanation of registration results](DataDescription.md)
+
+Transformed moving structures are stored at ??
+
+To overlay transformed atlas on section images, run 
+`registration/visualize_registration.py <fixed_brain_spec_json> <moving_brain_spec_json> <registration_setting_id> [--json_encoded_structure_list]`
 
 Notebook: `registration/registration_v7_atlasV6_local_allstructures.ipynb`
 

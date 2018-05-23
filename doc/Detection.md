@@ -10,7 +10,7 @@ Output is under `/data/CSHL_patch_features/inception-bn-blue/<brain>/<brain>_pre
 
 Notebook: `learning/compute_features_for_entire_stacks.ipynb`
 
-## Simple global registration
+## Simple global registration (optional)
 
 This step performs a simple texture-independent registration that roughly aligns the atlas to the subject.
 The purpose is to find a small 3-D extent (compared to the full subject) to run the subsequent detection.

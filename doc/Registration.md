@@ -39,16 +39,11 @@ Each setting specifies the following parameters:
 - comment
 
 
-## Local registration
+# Local registration
 
-Structures are further adjusted either individually or in groups.
+Run `registration/register_brain.py <fixed_brain_spec_json> <moving_brain_spec_json> <registration_setting_id>`
 
-`registration/registration_v7_atlasV6_local_allstructures`
-
-`$ ./register.py <transform_spec>`
-
-Also see [Explanation of registration results](FileOrganization.md)
-
+Notebook: `registration/registration_v7_atlasV6_local_allstructures.ipynb`
 
 # Using `Aligner` class
 
@@ -63,6 +58,8 @@ Also see [Explanation of registration results](FileOrganization.md)
 - Run `Aligner.optimize` to compute `R` and `t`.
 - Compose initial transform and estimated transform using `compose_alignment_parameters`.
 - Save registration results using `DataManager.save_alignment_results_v3`.
+Also see [Explanation of registration results](FileOrganization.md)
+
 
 ## Apply estimated transforms
 

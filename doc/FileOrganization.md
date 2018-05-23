@@ -15,6 +15,8 @@ The storage locations of different types of data are specified by the following 
 - `REGISTRATION_VIZ_ROOTDIR`
 - `MXNET_MODEL_ROOTDIR`
 
+All data are stored relative to these root directories. The exact path for specific data is provided in the description of the system process that generates the data.
+
 Data are stored long-term in two places:
 - Lab server `birdstore.dk.ucsd.edu` under `/brainbucket/data/Active_Atlas_Data/`. 
   - Raw images are stored in folders that correspond to the scanner used, e.g. `UCSD_AxioScanner/CSHL2_2018-04-04`.

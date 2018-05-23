@@ -1,9 +1,11 @@
-# Registration specs and brain specs
+# Registration specs
 
 A _registration_spec_ specifies:
   - stack_m: dict, moving brain spec
   - stack_f: dict, fixed brain spec
   - warp_setting: int, registration setting id
+
+# Brain specs
 
 A _brain_spec_ specifies:
 - name: brain name

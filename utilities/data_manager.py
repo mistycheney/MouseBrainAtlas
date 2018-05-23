@@ -1500,32 +1500,32 @@ class DataManager(object):
     #     return DataManager.get_warped_volume_basename(stack_m=stack, classifier_setting_m=classifier_setting,
     #     downscale=downscale, type_m=volume_type)
 
-    @staticmethod
-    def get_original_volume_basename(stack, prep_id=None, detector_id=None, resolution=None, downscale=None, structure=None, volume_type='score', **kwargs):
-        """
-        Args:
-            resolution (str): down32 or 10.0um
-        """
+#     @staticmethod
+#     def get_original_volume_basename(stack, prep_id=None, detector_id=None, resolution=None, downscale=None, structure=None, volume_type='score', **kwargs):
+#         """
+#         Args:
+#             resolution (str): down32 or 10.0um
+#         """
 
-        components = []
-        if prep_id is not None:
-            components.append('prep%(prep)d' % {'prep':prep_id})
-        if detector_id is not None:
-            components.append('detector%(detector_id)d' % {'detector_id':detector_id})
+#         components = []
+#         if prep_id is not None:
+#             components.append('prep%(prep)d' % {'prep':prep_id})
+#         if detector_id is not None:
+#             components.append('detector%(detector_id)d' % {'detector_id':detector_id})
 
-        if resolution is None:
-            if downscale is not None:
-                resolution = 'down%d' % downscale
+#         if resolution is None:
+#             if downscale is not None:
+#                 resolution = 'down%d' % downscale
 
-        if resolution is not None:
-            components.append('%(outres)s' % {'outres':resolution})
+#         if resolution is not None:
+#             components.append('%(outres)s' % {'outres':resolution})
 
-        tmp_str = '_'.join(components)
-        basename = '%(stack)s_%(tmp_str)s_%(volstr)s' % \
-            {'stack':stack, 'tmp_str':tmp_str, 'volstr':volume_type_to_str(volume_type)}
-        if structure is not None:
-            basename += '_' + structure
-        return basename
+#         tmp_str = '_'.join(components)
+#         basename = '%(stack)s_%(tmp_str)s_%(volstr)s' % \
+#             {'stack':stack, 'tmp_str':tmp_str, 'volstr':volume_type_to_str(volume_type)}
+#         if structure is not None:
+#             basename += '_' + structure
+#         return basename
 
     @staticmethod
     def get_original_volume_basename_v2(stack_spec):
@@ -1586,44 +1586,44 @@ class DataManager(object):
             if isinstance(structure, str):
                 basename += '_' + structure
             elif isinstance(structure, list):
-                basename += '_' + '_'.join(structure)
+                basename += '_' + '_'.join(sorted(structure))
             else:
                 raise
 
         return basename
 
     # OBSOLETE
-    @staticmethod
-    def get_warped_volume_basename(stack_m,
-                                   stack_f=None,
-                                   warp_setting=None,
-                                   prep_id_m=None,
-                                   prep_id_f=None,
-                                   detector_id_m=None,
-                                   detector_id_f=None,
-                                   downscale=32,
-                                   structure_m=None,
-                                   structure_f=None,
-                                   vol_type_m='score',
-                                   vol_type_f='score',
-                                   trial_idx=None,
-                                   **kwargs):
+#     @staticmethod
+#     def get_warped_volume_basename(stack_m,
+#                                    stack_f=None,
+#                                    warp_setting=None,
+#                                    prep_id_m=None,
+#                                    prep_id_f=None,
+#                                    detector_id_m=None,
+#                                    detector_id_f=None,
+#                                    downscale=32,
+#                                    structure_m=None,
+#                                    structure_f=None,
+#                                    vol_type_m='score',
+#                                    vol_type_f='score',
+#                                    trial_idx=None,
+#                                    **kwargs):
 
-        basename_m = DataManager.get_original_volume_basename(stack=stack_m, prep_id=prep_id_m, detector_id=detector_id_m,
-                                                  resolution='down%d'%downscale, volume_type=vol_type_m, structure=structure_m)
+#         basename_m = DataManager.get_original_volume_basename(stack=stack_m, prep_id=prep_id_m, detector_id=detector_id_m,
+#                                                   resolution='down%d'%downscale, volume_type=vol_type_m, structure=structure_m)
 
-        if stack_f is None:
-            assert warp_setting is None
-            vol_name = basename_m
-        else:
-            basename_f = DataManager.get_original_volume_basename(stack=stack_f, prep_id=prep_id_f, detector_id=detector_id_f,
-                                                  resolution='down%d'%downscale, volume_type=vol_type_f, structure=structure_f)
-            vol_name = basename_m + '_warp%(warp)d_' % {'warp':warp_setting} + basename_f
+#         if stack_f is None:
+#             assert warp_setting is None
+#             vol_name = basename_m
+#         else:
+#             basename_f = DataManager.get_original_volume_basename(stack=stack_f, prep_id=prep_id_f, detector_id=detector_id_f,
+#                                                   resolution='down%d'%downscale, volume_type=vol_type_f, structure=structure_f)
+#             vol_name = basename_m + '_warp%(warp)d_' % {'warp':warp_setting} + basename_f
 
-        if trial_idx is not None:
-            vol_name += '_trial_%d' % trial_idx
+#         if trial_idx is not None:
+#             vol_name += '_trial_%d' % trial_idx
 
-        return vol_name
+#         return vol_name
 
     @staticmethod
     def get_warped_volume_basename_v2(alignment_spec, trial_idx=None):
@@ -4425,6 +4425,9 @@ class DataManager(object):
         Returns:
             Absolute path of the image directory.
         """
+        
+        if prep_id is not None and isinstance(prep_id, str):
+            prep_id = prep_str_to_id_2d[prep_id]
 
         if version is None:
             if resol == 'thumbnail' or resol == 'down64':

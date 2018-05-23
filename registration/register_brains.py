@@ -28,17 +28,19 @@ parser = argparse.ArgumentParser(
 parser.add_argument("fixed_brain_spec", type=str, help="Fixed brain name")
 parser.add_argument("moving_brain_spec", type=str, help="Moving brain name")
 parser.add_argument("registration_setting", type=int, help="Registration setting")
-parser.add_argument("--out_dir", type=str, help="Output directory")
+parser.add_argument("-g", "--use_simple_global", action='store_true', help="Set this flag to initialize with simple global registration")
+# parser.add_argument("--out_dir", type=str, help="Output directory")
 args = parser.parse_args()
 
 brain_f_spec = load_json(args.fixed_brain_spec)
 brain_m_spec = load_json(args.moving_brain_spec)
 registration_setting = args.registration_setting
+use_simple_global = args.use_simple_global
 
-if hasattr(args, "out_dir"):
-    out_dir = args.out_dir
-else:
-    out_dir = None
+# if hasattr(args, "out_dir"):
+#     out_dir = args.out_dir
+# else:
+#     out_dir = None
 
 structures_f = brain_f_spec['structure']
 if isinstance(structures_f, str):
@@ -59,6 +61,8 @@ else:
 
 alignment_spec = dict(stack_m=brain_m_spec, stack_f=brain_f_spec, warp_setting=registration_setting)
 
+simpleGlobal_alignment_spec = dict(stack_m=brain_m_spec, stack_f=brain_f_spec, warp_setting=0)
+
 aligner_parameters = generate_aligner_parameters_v2(alignment_spec=alignment_spec, 
                                                     structures_m=structures_m,
                                                    fixed_structures_are_sided=True,
@@ -74,13 +78,14 @@ aligner.set_label_weights(label_weights=aligner_parameters['label_weights_m'])
 
 ################################
 
-# T_atlas_wrt_canonicalAtlasSpace_subject_wrt_wholebrain_atlasResol = bp.unpack_ndarray_file('/home/yuncong/' + brain_f_spec['name'] + '_T_atlas_wrt_canonicalAtlasSpace_subject_wrt_wholebrain_atlasResol.bp')
-# aligner.set_initial_transform(T_atlas_wrt_canonicalAtlasSpace_subject_wrt_wholebrain_atlasResol)
-# aligner.set_centroid(centroid_m='structure_centroid', centroid_f='centroid_m')
-
-T_atlas_wrt_canonicalAtlasSpace_subject_wrt_wholebrain_atlasResol = np.array([[1,0,0,0],[0,1,0,0],[0,0,1,0]])
-aligner.set_initial_transform(T_atlas_wrt_canonicalAtlasSpace_subject_wrt_wholebrain_atlasResol)
-aligner.set_centroid(centroid_m='structure_centroid', centroid_f='structure_centroid')
+if use_simple_global:
+    T_atlas_wrt_canonicalAtlasSpace_subject_wrt_wholebrain_atlasResol = bp.unpack_ndarray_file('/home/yuncong/' + brain_f_spec['name'] + '_T_atlas_wrt_canonicalAtlasSpace_subject_wrt_wholebrain_atlasResol.bp')
+    aligner.set_initial_transform(T_atlas_wrt_canonicalAtlasSpace_subject_wrt_wholebrain_atlasResol)
+    aligner.set_centroid(centroid_m='structure_centroid', centroid_f='centroid_m')
+else:
+    T_atlas_wrt_canonicalAtlasSpace_subject_wrt_wholebrain_atlasResol = np.array([[1,0,0,0],[0,1,0,0],[0,0,1,0]])
+    aligner.set_initial_transform(T_atlas_wrt_canonicalAtlasSpace_subject_wrt_wholebrain_atlasResol)
+    aligner.set_centroid(centroid_m='structure_centroid', centroid_f='structure_centroid')
 
 ################################
 
@@ -126,39 +131,56 @@ DataManager.save_alignment_results_v3(transform_parameters=convert_transform_for
                   alignment_spec=alignment_spec)
 
 
-# for structure_m in structures_m:
+# Transform moving structures. Save transformed version.
 
-#     stack_m_spec = dict(name='atlasV6',
-#                vol_type='score',
-#                structure=structure_m,
-#                 resolution='10.0um'
-#                )
+for structure_m in structures_m:
 
-#     stack_f_spec = dict(name=stack,
-#                        vol_type='score',
-#                        detector_id=detector_id,
-#                        structure=convert_to_original_name(structure_m),
-#                         resolution='10.0um'
-#                        )
+    for s in [structure_m, convert_to_surround_name(name=structure_m, margin='200um')]:
+    
+        stack_m_spec = dict(name='atlasV6',
+                   vol_type='score',
+                   structure=s,
+                    resolution='10.0um'
+                   )
 
-#     local_alignment_spec = dict(stack_m=stack_m_spec, 
-#                           stack_f=stack_f_spec,
-#                           warp_setting=registration_setting)
+    #     stack_f_spec = dict(name=stack,
+    #                        vol_type='score',
+    #                        detector_id=detector_id,
+    #                        structure=convert_to_original_name(structure_m),
+    #                         resolution='10.0um'
+    #                        )
 
-#     DataManager.save_alignment_results_v3(transform_parameters=convert_transform_forms(transform=tf_atlas_to_subj, out_form='dict'),
-#                    score_traj=aligner.scores,
-#                    parameter_traj=aligner.Ts,
-#                   alignment_spec=local_alignment_spec)
+        # local_alignment_spec = dict(stack_m=stack_m_spec, 
+        #                       stack_f=stack_f_spec,
+        #                       warp_setting=registration_setting)
 
-#     tf_atlas_to_subj = DataManager.load_alignment_results_v3(local_alignment_spec, what='parameters', out_form=(4,4))
+        # DataManager.save_alignment_results_v3(transform_parameters=convert_transform_forms(transform=tf_atlas_to_subj, out_form='dict'),
+        #                score_traj=aligner.scores,
+        #                parameter_traj=aligner.Ts,
+        #               alignment_spec=local_alignment_spec)
 
-#     atlas_structure_wrt_canonicalAtlasSpace_atlasResol = \
-#     DataManager.load_original_volume_v2(stack_spec=stack_m_spec, bbox_wrt='canonicalAtlasSpace', structure=structure_m)
+        # tf_atlas_to_subj = DataManager.load_alignment_results_v3(local_alignment_spec, what='parameters', out_form=(4,4))
 
-#     aligned_structure_wrt_wholebrain_inputResol = \
-#     transform_volume_v4(volume=atlas_structure_wrt_canonicalAtlasSpace_atlasResol,
-#                         transform=tf_atlas_to_subj,
-#                         return_origin_instead_of_bbox=True)
+        atlas_structure_wrt_canonicalAtlasSpace_atlasResol = \
+        DataManager.load_original_volume_v2(stack_spec=stack_m_spec, bbox_wrt='canonicalAtlasSpace', structure=s)
 
-#     DataManager.save_transformed_volume_v2(volume=aligned_structure_wrt_wholebrain_inputResol, 
-#                                            alignment_spec=local_alignment_spec)
+        aligned_structure_wrt_wholebrain_inputResol = \
+        transform_volume_v4(volume=atlas_structure_wrt_canonicalAtlasSpace_atlasResol,
+                            transform=tf_atlas_to_subj,
+                            return_origin_instead_of_bbox=True)
+
+        DataManager.save_transformed_volume_v2(volume=aligned_structure_wrt_wholebrain_inputResol, 
+                                               alignment_spec=alignment_spec,
+                                              structure=s)
+
+        ###############################
+
+
+        aligned_structure_wrt_wholebrain_inputResol = \
+        transform_volume_v4(volume=atlas_structure_wrt_canonicalAtlasSpace_atlasResol,
+                            transform=init_T,
+                            return_origin_instead_of_bbox=True)
+
+        DataManager.save_transformed_volume_v2(volume=aligned_structure_wrt_wholebrain_inputResol, 
+                                               alignment_spec=simpleGlobal_alignment_spec,
+                                              structure=s)

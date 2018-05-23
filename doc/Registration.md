@@ -1,63 +1,64 @@
-# Processing a new stack given a trained atlas
+# Registration specs
 
-## Compute the features at sparse locations on each image.
-`learning/compute_features_for_entire_stacks.ipynb`
+A _registration_spec_ specifies:
+  - stack_m: dict, moving brain spec
+  - stack_f: dict, fixed brain spec
+  - warp_setting: int, registration setting id
 
-## Simple global registration
-Use the GUI to select the 2D center of 12N and 3N(either L or R). Then
-`registration/registration_v7_atlasV6_simpleGlobal`
+# Brain specs
 
-This helps reduce the area considered by the following detection step.
+A _brain_spec_ specifies:
+- name: brain name
+- vol_type: volume type
+- structure: str or list. If list, these structures are transformed as an integral group.
+- resolution: 
+- detector_id: mandatory if vol_type is "score".
 
-## Convert the image stack to 3-D probability maps.
-`learning/from_images_to_score_volume.ipynb`
+See `example_fixed_brain_spec.json` for an example.
 
-## Local registration
+# Registration settings
+A set of registration settings are defined in `registration/registration_settings.csv`.
+Each setting specifies the following parameters:
+- warp_id
+- upstream_warp_id
+- transform_type: rigid or affine, or bspline
+- grad_computation_sample_number
+- grid_search_sample_number
+- std_tx_um
+- std_ty_um
+- std_tz_um
+- std_theta_xy_degree
+- surround_weight
+- regularization_weight
+- terminate_thresh_trans
+- terminate_thresh_rot
+- history_len
+- max_iter_num
+- learning_rate_trans
+- learning_rate_rot
+- comment
 
-Structures are further adjusted either individually or in groups.
 
-`registration/registration_v7_atlasV6_local_allstructures`
+# Local registration
 
-`$ ./register.py <transform_spec>`
+Run `registration/register_brain.py <fixed_brain_spec_json> <moving_brain_spec_json> <registration_setting_id> [--use_simple_global]`
 
+Generated registration results are stored at
+`CSHL_registration_parameters/<atlas_name>/<atlas_name>_10.0um_scoreVolume_<moving_structures>_warp<registration_id>_<fixed_brain>_detector<detector_id>_10.0um_scoreVolume_<fixed_structures>`.
+Also see [Explanation of registration results](DataDescription.md)
 
-# Transform parameters
+Transformed moving structures (including the corresponding surround structures) are stored at 
+`CSHL_volumes/<atlas_name>/<moving_brain_spec>_warp<registration_setting_id>_<fixed_brain_spec>/score_volumes/`
 
-A transform can be expressed in any of the following ways:
+For each structure, the volume spec is `<moving_brain_spec>_warp<registration_setting_id>_<fixed_brain_spec>_<sided_or_surround_structure>`.
+Origin wrt is `origin_wrt_fixedWholebrain.txt`.
 
-* dictionary
-  - `parameters`: 12-array, flattened version of the rigid or affine 3x4 matrix.
-  - `centroid_m_wrt_wholebrain`: 3-array, initial shift of the moving volume, relative to the wholebrain origin.
-  - `centroid_f_wrt_wholebrain`: 3-array, initial shift of the fixed volume, relative to the wholebrain origin.
-* (4,4) matrix: the 4x4 matrix that represents the transform.
-* (3,4) matrix: first three rows of the full 4x4 matrix.
-* (12,) array: flattened array of the first three rows of the full 4x4 matrix.
+To overlay transformed atlas on section images, run 
+`registration/visualize_registration.py <fixed_brain_spec_json> <moving_brain_spec_json> <registration_setting_id> [--structure_list <json_encoded_structure_list>]`
 
-For each registration, the following results are stored:
-- `<registration_identifier>_parameters.json`: contains three keys `centroid_f_wrt_wholebrain`((3,)-array), `centroid_m_wrt_wholebrain`((3,)-array) and `parameters`((12,)-array).
-- `<registration_identifier>_scoreHistory.bp`: the score history as a list
-- `<registration_identifier>_scoreEvolution.png`: plot of the score over iterations
-- `<registration_identifier>_trajectory.bp`: trajectory of the parameters during optimization, a list of 12 parameters.
-
-Mathematically, a transform is expressed as:
-
-q - q0 = R * T0(p-p0) + t
-
-- `p` is a point in moving brain (wrt wholebrain in the case of a subject brain, or canonicalAtlasSpace in the case of atlas)
-- `p0` is the rotation center defined on moving brain.
-- `q` is a point in fixed brain (wrt wholebrain)
-- `q0` is the shift of fixed brain.
-- `R`, the 3x3 rotation matrix, which is part of the computed transform.
-- `t`, 3-array, which is part of the computed transform.
-- `T0` is the initial transform. 
+Notebook: `registration/registration_v7_atlasV6_local_allstructures.ipynb`
 
 # Using `Aligner` class
-
-- First prepare the registration specification.
-
-## Registration settings
-
-`registration/registration_settings.csv`
 
 ## Run registration
 - Generate parameters based on the registration specification, using `generate_aligner_parameters_v2`
@@ -77,3 +78,5 @@ q - q0 = R * T0(p-p0) + t
 - Load original moving volumes using `DataManager.load_original_volume_v2`.
 - Transform moving volumes using `transform_volume_v4`
 - Save transformed volumes using `DataManager.save_transformed_volume_v2`.
+
+

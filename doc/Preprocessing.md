@@ -3,7 +3,27 @@
 Sections must be sagittal.
 
 # Naming convention for processed images #
-Processed images are under `$DATA_ROOTDIR`. The path to each processed image follows the pattern `<stack>/<stack>_prep<prep_id>_<resol>_<version>/<image_name>_prep<prep_id>_<resol>_<version>.<ext>`.
+
+Every processed image can be uniquely identified by the following information:
+- image name: See below.
+- version: a word that specifies a channel or the processed result of a particular channel. For example, it can be "Ntb" for neurotrace channel, "CHAT" for the ChAT channel, "NtbNormalized" for the intensity-normalized neurotrace channel.
+- resolution: a word that specifies the pixel resolution. It can be "raw", "down32" (downsample raw data in both dimensions by a factor of 32), "thumbnail" (same as "down32"). It can also be an absolute physical size such as "10.0um".
+- prep id: a number or word that identifies the preprocessing procedure applied, such as rotation and cropping.
+
+Processed images are stored under `$DATA_ROOTDIR`. The path to each processed image follows the pattern `<stack>/<stack>_prep<prep_id>_<resol>_<version>/<image_name>_prep<prep_id>_<resol>_<version>.<ext>`.
+
+### Image Name ###
+
+Each physical section is associated with an `imageName`.
+There is no fixed composition rule for image names.
+The principle is that one can trace back from an image name to the physical section. Therefore in each image name, these two elements are mandatory:
+- slide number
+- section or scene index in the slide
+
+Other than that, the brain id is optional but desired. Other information such as the scan date or stain name are optional.
+For example, both `CHATM3_slide31_2018_02_17-S2` and `Slide31-Nissl-S2` are valid image names.
+It is important to use only one composition rule for each brain. **Do not use space or special characters such as ampersand as they will not be parsed correctly in Linux commandline.**
+
 
 # Convert raw data to TIFs
 ## CSHL data

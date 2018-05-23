@@ -9,7 +9,7 @@ This system works with sagittal series with Nissl stains:
 - thionin (brightfield) 
 - [Neurotrace Blue](https://www.thermofisher.com/order/catalog/product/N21479) (fluorescent)
 
-The series can be additonally stained with:
+The series can be additionally stained with:
 - cell type marker, e.g. ChAT
 - neuronal tracers, e.g. pseudo-rabies and delta-G rabies
 

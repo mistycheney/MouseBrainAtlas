@@ -8,5 +8,4 @@
 - [Visualization](Visualization.md)
 - [Build Atlas](BuildAtlas.md)
 - [Train Classifiers](TrainClassifiers.md)
-
 - [Timing](Timing)

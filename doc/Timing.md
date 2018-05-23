@@ -1,5 +1,9 @@
 # Preprocessing
 
+## Convert raw data to TIFF
+jp2 -> raw: 
+raw -> raw_Ntb:
+
 ### For nissl data
 * raw -> thumbnail
 * **Compute tranforms using thumbnail**

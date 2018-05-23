@@ -9,7 +9,7 @@ Image data
 Raw and processed data are stored in two places:
 - Lab server `birdstore.dk.ucsd.edu` under `/brainbucket/data/Active_Atlas_Data/`. 
   - Raw data are stored in folders that correspond to the scanner used, e.g. `UCSD_AxioScanner/CSHL2_2018-04-04`.
-  - Processed data are stored in `$DATA_ROOTDIR` and other folders.
+  - Processed data are stored in `CSHL_data_processed` and other folders.
 - AWS S3 bucket `mousebrainatlas-rawdata` and `mousebrainatlas-data`.
   - Raw data are stored in bucket `mousebrainatlas-rawdata`.
   - Processed data are stored in bucket `mousebrainatlas-data`.

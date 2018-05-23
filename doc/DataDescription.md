@@ -53,7 +53,7 @@ In our system, a transform can be expressed in any of the following ways:
 Annotation
 =========
 
-There are two types of annotations (2D polygons, 3D structures). They are stored as HDF tabular files. Each row represents a polygon or a structure.
+There are two types of annotations: 2-D polygons and 3-D structures. They are stored as HDF tabular files. Each row represents a polygon or a structure.
 
 ## 2-D Polygons 
 

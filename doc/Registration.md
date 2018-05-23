@@ -17,9 +17,8 @@ A _brain_spec_ specifies:
 See `example_fixed_brain_spec.json` for an example.
 
 # Registration settings
-A set of registration settings are defined in `registration/registration_settings.csv`
-
-Each registration setting specifies:
+A set of registration settings are defined in `registration/registration_settings.csv`.
+Each setting specifies the following parameters:
 - warp_id
 - upstream_warp_id
 - transform_type: rigid or affine, or bspline

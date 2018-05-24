@@ -24,7 +24,7 @@
 - Jaccard index between aligned atlas and expert annotation.
 - voxel value difference
 
-For both after global registration, and after local registration.
+These are computed for both after global registration, and after local registration.
 
 `registration/evaluate_registration_metrics_v2_compute_deviation_vs_expert.ipynb`
 

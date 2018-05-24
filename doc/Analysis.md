@@ -15,5 +15,10 @@
 measure Jaccard, centroid position error, mean voxel value difference.
 `registration/evaluate_registration_metrics_v2_compute_deviation_vs_expert.ipynb`
 
-Measure confidence: z-score, peak width.
+### Measure confidence: z-score, peak width.
+
 `registration/measure_confidence_v4.ipynb`
+
+Peak width in most uncertain direction:
+
+`/home/yuncong/Dropbox/BrainProjectFiguresByTopic/Registration/confidence/measurements/peakradius_max_normalized_allstacks_allstructures_allsteps_allpools.json`

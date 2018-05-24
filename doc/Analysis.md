@@ -12,7 +12,10 @@
 
 ### For three annotated brains
 
-Measure Jaccard, centroid position error, voxel value difference.
+- Jaccard index between aligned atlas and expert annotation.
+- centroid position error
+- voxel value difference
+
 `registration/evaluate_registration_metrics_v2_compute_deviation_vs_expert.ipynb`
 
 ### Measure confidence: z-score, peak width.

@@ -1,10 +1,6 @@
-## For unannotated brains
-
 ### Quantify human correction
 `registration/analyze_human_correction.ipynb`
-
-## For annotated brains
-
+  
 ### Global to local difference
 `registration/update_atlas.ipynb`
 

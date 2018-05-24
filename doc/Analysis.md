@@ -8,9 +8,16 @@
 `registration/update_atlas.ipynb`
 
 ### Population variability
+
 `registration/update_atlas.ipynb`
 
-### For three annotated brains
+## Registration error compared to ChAT labels
+
+- centroid position error
+
+`registration/registration_v7_atlasV6_local_allstructures.ipynb`
+
+### Registration error compared to expert annotations
 
 - Jaccard index between aligned atlas and expert annotation.
 - centroid position error
@@ -18,7 +25,7 @@
 
 `registration/evaluate_registration_metrics_v2_compute_deviation_vs_expert.ipynb`
 
-### Measure confidence: z-score, peak width.
+### Registration confidence: z-score, peak width
 
 `registration/measure_confidence_v4.ipynb`
 

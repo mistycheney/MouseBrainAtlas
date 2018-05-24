@@ -14,14 +14,17 @@
 ## Registration error compared to ChAT labels
 
 - centroid position error
+- Jaccard index between aligned atlas and ChAT
 
-`registration/registration_v7_atlasV6_local_allstructures.ipynb`
+`registration/evaluate_registration_metrics_v2_compute_deviation_vs_ChAT.ipynb`
 
 ### Registration error compared to expert annotations
 
-- Jaccard index between aligned atlas and expert annotation.
 - centroid position error
+- Jaccard index between aligned atlas and expert annotation.
 - voxel value difference
+
+For both after global registration, and after local registration.
 
 `registration/evaluate_registration_metrics_v2_compute_deviation_vs_expert.ipynb`
 

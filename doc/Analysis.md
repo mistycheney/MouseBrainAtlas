@@ -9,6 +9,9 @@
 
 ### Population variability
 
+- deviation vector from mean position
+- RMS variation distance in 3D, as well as in rostral-caudal, dorsal-ventral and lateral medial axes.
+
 `registration/update_atlas.ipynb`
 
 ## Registration error compared to ChAT labels

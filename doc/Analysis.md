@@ -2,6 +2,7 @@
 
 - deviation vector from mean position
 - RMS variation distance in 3D, as well as in rostral-caudal, dorsal-ventral and lateral medial axes.
+- non-isotropy of variation
 
 `registration/update_atlas.ipynb`
 

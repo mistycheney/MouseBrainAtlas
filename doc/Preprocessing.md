@@ -20,6 +20,11 @@ Other than that, the brain id is optional but desired. Other information such as
 For example, both `CHATM3_slide31_2018_02_17-S2` and `Slide31-Nissl-S2` are valid image names.
 It is important to use only one composition rule for each brain. **Do not use space or special characters such as ampersand** as they will not be parsed correctly in Linux commandline.
 
+### Preprocessing Identifier (prep id) ###
+- None: original unaligned uncropped image
+- 1: alignedPadded
+- 2: alignedBrainstemCrop
+- 5: alignedWithMargin
 
 # General Steps:
 

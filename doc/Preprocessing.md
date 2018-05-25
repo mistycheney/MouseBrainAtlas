@@ -2,9 +2,9 @@
 
 Every processed image can be uniquely identified by a combination of the following information:
 - **image name**: a string that uniquely identifies a physical section.
-- **version**: a word that specifies a channel or the processed result of a particular channel.
+- **version**: a word that specifies particular channel or appearance adjustment operations.
 - **resolution**: a word that specifies the pixel resolution.
-- **prep id**: a number or word that identifies the preprocessing procedure applied.
+- **prep id**: a number or word that identifies the geometrical adjustment operations applied.
 
 Processed images are stored under `$DATA_ROOTDIR`. The path to each processed image follows the pattern `<stack>/<stack>_prep<prep_id>_<resol>_<version>/<image_name>_prep<prep_id>_<resol>_<version>.<ext>`.
 

@@ -59,9 +59,9 @@ It is important to use only one composition rule for each brain. **Do not use sp
 * prep5_raw -> prep2_raw
 * prep5_thumbnail -> prep2_thumbnail
 * prep5_thumbnail_mask -> prep2_thumbnail_mask
-* prep2_raw -> prep2_raw_gray: 30s * ~300 sections = 150 mins
-* prep2_raw_gray -> prep2_raw_grayJpeg: 20s * ~300 sections = 100 mins
-* prep2_raw -> prep2_raw_jpeg: 20s * ~300 sections = 100 mins
+* prep2_raw -> prep2_raw_gray
+* prep2_raw_gray -> prep2_raw_grayJpeg
+* prep2_raw -> prep2_raw_jpeg
 
 _prep2_raw_gray_ are used for structure detection.
 _prep5_raw_ will be published online.
@@ -69,18 +69,18 @@ _prep5_raw_ will be published online.
 ## For Neurotrace (fluorescent) data
 * raw -> raw_Ntb:
 * raw_Ntb -> thumbnail_Ntb
-* thumbnail_Ntb -> thumbnail_NtbNormalized: 0.1s/section
+* thumbnail_Ntb -> thumbnail_NtbNormalized
 * **Compute transforms using thumbnail_NtbNormalized**
 * **Supply prep1_thumbnail_mask**
 * prep1_thumbnail_mask -> thumbnail_mask
 * raw_Ntb -> raw_NtbNormalizedAdaptiveInvertedGamma (**brightness correction**)
 * **Compute prep5 (alignedWithMargin) cropping box based on prep1_thumbnail_mask**
-* raw_NtbNormalizedAdaptiveInvertedGamma -> prep5_raw_NtbNormalizedAdaptiveInvertedGamma: ~1.5min/section * 300 sections = 7.5 hrs
-* thumbnail_NtbNormalized -> prep5_thumbnail_NtbNormalized: 70s/stack (8 threads)
-* prep5_raw_NtbNormalizedAdaptiveInvertedGamma -> prep5_thumbnail_NtbNormalizedAdaptiveInvertedGamma: 5s/section
+* raw_NtbNormalizedAdaptiveInvertedGamma -> prep5_raw_NtbNormalizedAdaptiveInvertedGamma
+* thumbnail_NtbNormalized -> prep5_thumbnail_NtbNormalized
+* prep5_raw_NtbNormalizedAdaptiveInvertedGamma -> prep5_thumbnail_NtbNormalizedAdaptiveInvertedGamma
 * **Specify prep2 (alignedBrainstemCrop) cropping box**
-* prep5_raw_NtbNormalizedAdaptiveInvertedGamma -> prep2_raw_NtbNormalizedAdaptiveInvertedGamma: 1500s/stack (4 threads)
-* prep2_raw_NtbNormalizedAdaptiveInvertedGamma -> prep2_raw_NtbNormalizedAdaptiveInvertedGammaJpeg: 14s/section
+* prep5_raw_NtbNormalizedAdaptiveInvertedGamma -> prep2_raw_NtbNormalizedAdaptiveInvertedGamma
+* prep2_raw_NtbNormalizedAdaptiveInvertedGamma -> prep2_raw_NtbNormalizedAdaptiveInvertedGammaJpeg
 
 
 # jp2/czi -> raw

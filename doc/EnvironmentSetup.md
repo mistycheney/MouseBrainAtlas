@@ -20,7 +20,8 @@ If using the lab workstation,
 
 # Configuring iPython notebook server
 
-http://jupyter-notebook.readthedocs.io/en/stable/public_server.html
+[Running a public notebook server](http://jupyter-notebook.readthedocs.io/en/stable/public_server.html)
+
 Additionally, set `c.NotebookApp.ip = '*'`.
 
 # Launching iPython notebook server

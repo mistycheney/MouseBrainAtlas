@@ -1,10 +1,10 @@
 # Naming convention for processed images #
 
 Every processed image can be uniquely identified by the following information:
-- image name: See below.
-- version: a word that specifies a channel or the processed result of a particular channel. For example, it can be "Ntb" for neurotrace channel, "CHAT" for the ChAT channel, "NtbNormalized" for the intensity-normalized neurotrace channel.
-- resolution: a word that specifies the pixel resolution. It can be "raw", "down32" (downsample raw data in both dimensions by a factor of 32), "thumbnail" (same as "down32"). It can also be an absolute physical size such as "10.0um".
-- prep id: a number or word that identifies the preprocessing procedure applied, such as rotation and cropping.
+- image name: a string that uniquely identifies a physical section.
+- version: a word that specifies a channel or the processed result of a particular channel.
+- resolution: a word that specifies the pixel resolution.
+- prep id: a number or word that identifies the preprocessing procedure applied.
 
 Processed images are stored under `$DATA_ROOTDIR`. The path to each processed image follows the pattern `<stack>/<stack>_prep<prep_id>_<resol>_<version>/<image_name>_prep<prep_id>_<resol>_<version>.<ext>`.
 
@@ -29,6 +29,7 @@ It is important to use only one composition rule for each brain. **Do not use sp
 ### Resolution ###
 - raw: original resolution of images. (0.325 micron/pixel for Axioscan, 0.46 micron/pixel for Nanozoomer)
 - thumbnail: usually 32x downscaled from raw
+- 10.0um: 10 micron
 
 ### Version ###
 - Ntb: Neurotrace blue channel. Single-channel image.

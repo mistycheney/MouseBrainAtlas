@@ -7,7 +7,7 @@ This will download the scripts and the package containing the reference anatomic
 
 Edit `global_setting.py` to specify global data path variables.
 
-# Using iPython Notebook Server
+# Login into servers
 
 If using AWS, 
 - On your local machine, run:
@@ -18,6 +18,11 @@ Wait until the cluster creation finishes to see the master node IP, or log onto 
 If using the lab workstation,
 - Log in workstation, `ssh <workstaton_ip>`.
 
+# Set up iPython notebook server
+
+http://jupyter-notebook.readthedocs.io/en/stable/public_server.html
+Additionally, set `c.NotebookApp.ip = '*'`.
+
 The following steps work the same for both AWS and the lab workstation.
 - Run `screen` to open a screen session (so the processes continue even if the terminal/SSH connection is closed)
 - Run `jupyter notebook <project_repo_dir> &` to start a Jupyter notebook in the background.
@@ -25,5 +30,3 @@ The following steps work the same for both AWS and the lab workstation.
 
 Then on your local machine,
 - Open a browser and go to `https//<server_ip>:8888` (assuming the Jupyter notebook uses port 8888). You can now access the notebook.
-
-

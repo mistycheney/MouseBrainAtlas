@@ -20,9 +20,9 @@ If using the lab workstation,
 
 # Configuring iPython notebook server
 
-[Running a public notebook server](http://jupyter-notebook.readthedocs.io/en/stable/public_server.html)
+Follow the steps in [Running a public notebook server](http://jupyter-notebook.readthedocs.io/en/stable/public_server.html).
 
-Additionally, set `c.NotebookApp.ip = '*'`.
+Additionally, in `.jupyter/jupyter_notebook_config.py` set `c.NotebookApp.ip = '*'`.
 
 # Launching iPython notebook server
 

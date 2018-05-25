@@ -33,3 +33,8 @@ The following steps work the same for both AWS and the lab workstation.
 
 Then on your local machine,
 - Open a browser and go to `https//<server_ip>:8888` (assuming the Jupyter notebook uses port 8888; try `http` instead of `https` if this failed). You can now access the notebook.
+
+# Other commands
+- `screen -r <session_id>` to resume the screen session.
+- `fg` to bring the Jupyter notebook process to foreground.
+- `bg` to put a process into background.

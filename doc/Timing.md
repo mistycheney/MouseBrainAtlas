@@ -4,7 +4,7 @@
 jp2 -> raw: 
 raw -> raw_Ntb:
 
-### For nissl data
+### For thionin data
 * raw -> thumbnail
 * **Compute tranforms using thumbnail**
 * thumbnail -> prep1_thumbnail

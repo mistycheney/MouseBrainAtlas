@@ -32,4 +32,4 @@ The following steps work the same for both AWS and the lab workstation.
 - Run `screen -d` to detach the screen session.
 
 Then on your local machine,
-- Open a browser and go to `https//<server_ip>:8888` (assuming the Jupyter notebook uses port 8888). You can now access the notebook.
+- Open a browser and go to `https//<server_ip>:8888` (assuming the Jupyter notebook uses port 8888; try `http` instead of `https` if this failed). You can now access the notebook.

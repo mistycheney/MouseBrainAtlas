@@ -22,9 +22,22 @@ It is important to use only one composition rule for each brain. **Do not use sp
 
 ### Preprocessing Identifier (prep id) ###
 - None: original unaligned uncropped image
-- 1: alignedPadded
-- 2: alignedBrainstemCrop
-- 5: alignedWithMargin
+- 1 (alignedPadded): section-to-section aligned, with large paddings.
+- 5 (alignedWithMargin): tightly crop over full tissue area with fixed small margin on all four sides.
+- 2 (alignedBrainstemCrop): crop only the brainstem area (from caudal end of thalamus to caudal end of trigeminal caudalis, from top of superior colliculus to bottom of brain)
+
+### Resolution ###
+- raw: original resolution of images. (0.325 micron/pixel for Axioscan, 0.46 micron/pixel for Nanozoomer)
+- thumbnail: usually 32x downscaled from raw
+
+### Version ###
+- Ntb: Neurotrace blue channel. Single-channel image.
+- NtbNormalized: linearly intensity stretched.
+- NtbNormalizedAdaptiveInvertedGamma: locally adaptive intensity normalized.
+- CHAT: ChAT signal channel. Single-channel image.
+- gray: single-channel grayscale images converted from RGB thionin images using skimage's `rgb2gray`.
+- mask: binary mask (1 for the tissue area, 0 for slide background).
+
 
 # General Steps:
 

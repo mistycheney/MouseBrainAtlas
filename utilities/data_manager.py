@@ -2417,7 +2417,10 @@ class DataManager(object):
                                    return_origin_instead_of_bbox=False, legacy=False):
         """
         Args:
-
+            alignment_spec (dict): specify stack_m, stack_f, warp_setting.
+            resolution (str): resolution of the output volume.
+            legacy (bool): if legacy, resolution can only be down32.
+            
         Returns:
             (2-tuple): (volume, bounding box wrt "wholebrain" domain of the fixed stack)
 
@@ -2429,21 +2432,31 @@ class DataManager(object):
             stack_f = alignment_spec['stack_f']['name']
             detector_id_f = alignment_spec['stack_f']['detector_id']
             warp = alignment_spec['warp_setting']
-            origin = DataManager.get_domain_origin(stack=stack_f, domain='brainstem').astype(np.int)
+            
+            origin_outResol = DataManager.get_domain_origin(stack=stack_f, domain='brainstem', resolution=resolution).astype(np.int)
 
-            vol = DataManager.load_transformed_volume(stack_m=stack_m, stack_f=stack_f,
+            vol_down32 = DataManager.load_transformed_volume(stack_m=stack_m, stack_f=stack_f,
                                                       warp_setting=warp, detector_id_m=None,
                                                       detector_id_f=detector_id_f,
                                                       prep_id_m=None, prep_id_f=2,
                                                         vol_type_m='score', vol_type_f='score', downscale=32,
                                                         structure=structure)
+            
+            vol_outResol = rescale_by_resampling(vol_down32, 
+                                  scaling=convert_resolution_string_to_um(resolution='down32', stack=stack_f)/convert_resolution_string_to_um(resolution=resolution, stack=stack_f))
 
-            bbox = np.array((origin[0], origin[0]+vol.shape[1], origin[1], origin[1]+vol.shape[0], origin[2], origin[2]+vol.shape[2]))
-            origin = bbox[[0,2,4]]
+            bbox_outResol = np.array((origin_outResol[0], 
+                             origin_outResol[0]+vol_outResol.shape[1], 
+                             origin_outResol[1], 
+                             origin_outResol[1]+vol_outResol.shape[0], 
+                             origin_outResol[2], 
+                             origin_outResol[2]+vol_outResol.shape[2])).astype(np.int)
+            
+            origin_outResol = bbox_outResol[[0,2,4]].astype(np.int)
             if return_origin_instead_of_bbox:
-                return (vol, origin)
+                return (vol_outResol, origin_outResol)
             else:
-                return (vol, bbox)
+                return (vol_outResol, bbox_outResol)
 
         else:
 
@@ -2828,27 +2841,28 @@ class DataManager(object):
         return os.path.join(VOLUME_ROOTDIR, alignment_spec['stack_m']['name'],
                             vol_basename, 'score_volumes', vol_basename_with_structure_suffix + '.bp')
 
-    # @staticmethod
-    # def get_transformed_volume_filepath(stack_m, stack_f,
-    #                                     warp_setting,
-    #                                     prep_id_m=None,
-    #                                     prep_id_f=None,
-    #                                     detector_id_m=None,
-    #                                     detector_id_f=None,
-    #                                     structure_m=None,
-    #                                     structure_f=None,
-    #                                     downscale=32,
-    #                                     vol_type_m='score',
-    #                                     vol_type_f='score',
-    #                                     structure=None,
-    #                                     trial_idx=None):
-    #
-    #     basename = DataManager.get_warped_volume_basename(**locals())
-    #     if structure is not None:
-    #         fn = basename + '_%s' % structure
-    #     else:
-    #         fn = basename
-    #     return os.path.join(VOLUME_ROOTDIR, stack_m, basename, 'score_volumes', fn + '.bp')
+    # OBSOLETE
+    @staticmethod
+    def get_transformed_volume_filepath(stack_m, stack_f,
+                                        warp_setting,
+                                        prep_id_m=None,
+                                        prep_id_f=None,
+                                        detector_id_m=None,
+                                        detector_id_f=None,
+                                        structure_m=None,
+                                        structure_f=None,
+                                        downscale=32,
+                                        vol_type_m='score',
+                                        vol_type_f='score',
+                                        structure=None,
+                                        trial_idx=None):
+    
+        basename = DataManager.get_warped_volume_basename(**locals())
+        if structure is not None:
+            fn = basename + '_%s' % structure
+        else:
+            fn = basename
+        return os.path.join(VOLUME_ROOTDIR, stack_m, basename, 'score_volumes', fn + '.bp')
 
     # @staticmethod
     # def load_transformed_volume_bbox(stack_m, stack_f,
@@ -4488,10 +4502,12 @@ class DataManager(object):
                                                        section=section, fn=fn, data_dir=data_dir, ext=ext,
                                                       thumbnail_data_dir=thumbnail_data_dir)
 
-        if resol == 'lossless' or resol == 'raw' or resol == 'down8':
-            download_from_s3(img_fp, local_root=DATA_ROOTDIR)
-        else:
-            download_from_s3(img_fp, local_root=THUMBNAIL_DATA_ROOTDIR)
+        if not os.path.exists(img_fp):
+        
+            if resol == 'lossless' or resol == 'raw' or resol == 'down8':
+                download_from_s3(img_fp, local_root=DATA_ROOTDIR)
+            else:
+                download_from_s3(img_fp, local_root=THUMBNAIL_DATA_ROOTDIR)
 
         global use_image_cache
         if use_image_cache:
@@ -4573,6 +4589,7 @@ class DataManager(object):
                     except:
                         sys.stderr.write('Cannot load mask %s, section=%s, fn=%s, prep=%s\n' % (stack, section, fn, prep_id))
             else:
+                sys.stderr.write("%s cannot be loaded." % version)
                 raise Exception("Image loading failed.")
 
         if version == 'mask':

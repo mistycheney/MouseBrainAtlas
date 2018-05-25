@@ -305,7 +305,7 @@ def annotation_from_multiple_warped_atlases_overlay_on(bg, warped_volumes_sets, 
 def annotation_by_human_overlay_on(bg, stack=None, fn=None, sec=None, orientation='sagittal',
                             structures=None, out_downsample=8,
                             users=None, colors=None, show_labels=True,
-                             contours=None, timestamp='latest', suffix='contours'):
+                             contours=None, timestamp='latest', suffix='contours', return_timestamp=False):
     """
     Draw annotation contours on a user-given background image.
 
@@ -323,10 +323,10 @@ def annotation_by_human_overlay_on(bg, stack=None, fn=None, sec=None, orientatio
             return
 
     if contours is None:
-        contours_df = DataManager.load_annotation_v4(stack=stack, timestamp=timestamp, suffix=suffix)
-        contours = contours_df[(contours_df['orientation'] == orientation) & (contours_df['downsample'] == 1)]
-        contours = contours.drop_duplicates(subset=['section', 'name', 'side', 'filename', 'downsample', 'creator'])
-        contours = convert_annotation_v3_original_to_aligned_cropped(contours, stack=stack)
+        contours_df, timestamp = DataManager.load_annotation_v4(stack=stack, timestamp=timestamp, suffix=suffix, return_timestamp=True)
+        contours = contours_df[(contours_df['orientation'] == orientation) & (contours_df['resolution'] == 'raw')]
+        contours = contours.drop_duplicates(subset=['section', 'name', 'side', 'filename', 'resolution', 'creator'])
+        contours = convert_annotation_v3_original_to_aligned_cropped_v2(contours, stack=stack, out_resolution='raw')
 
     if structures is None:
         structures = all_known_structures_sided
@@ -335,7 +335,7 @@ def annotation_by_human_overlay_on(bg, stack=None, fn=None, sec=None, orientatio
         colors = {n: np.random.randint(0, 255, (3,)) for n in structures}
 
     if bg == 'original':
-        img = DataManager.load_image(stack=stack, fn=fn, resol='lossless', version='jpeg')
+        img = DataManager.load_image_v2(stack=stack, prep_id=2, fn=fn, resol='raw', version='jpeg')
         bg = img[::out_downsample, ::out_downsample].copy()
 
     if bg.ndim == 2:
@@ -344,8 +344,8 @@ def annotation_by_human_overlay_on(bg, stack=None, fn=None, sec=None, orientatio
         viz = bg.copy()
 
     for name_s in structures:
-        matched_contours = contours[(contours['name'] == convert_to_original_name(name_s)) & (contours['filename'] == fn)]
-        for cnt_id, cnt_props in matched_contours.iterrows():
+        matched_contours_raw = contours[(contours['name'] == convert_to_original_name(name_s)) & (contours['filename'] == fn)]
+        for cnt_id, cnt_props in matched_contours_raw.iterrows():
             verts_imgRes = cnt_props['vertices'] / out_downsample
             cv2.polylines(viz, [verts_imgRes.astype(np.int)], True, colors[name_s], 2)
 
@@ -364,4 +364,7 @@ def annotation_by_human_overlay_on(bg, stack=None, fn=None, sec=None, orientatio
                     cv2.putText(viz, label, tuple(label_pos.astype(np.int)), cv2.FONT_HERSHEY_TRIPLEX, 1.0,
                             ((0,0,0)), 2)
 
-    return viz
+    if return_timestamp:
+        return viz, timestamp
+    else:
+        return viz

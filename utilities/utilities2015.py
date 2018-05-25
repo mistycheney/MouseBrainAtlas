@@ -34,6 +34,13 @@ from skimage.measure import find_contours, regionprops
 
 from skimage.filters import gaussian
 
+
+def convert_defaultdict_to_dict(d):
+    if isinstance(d, defaultdict):
+        d = {k: default_to_regular(v) for k, v in d.items()}
+    return d
+
+
 def compute_gradient_v2(volume, smooth_first=False, dtype=np.float16):
     """
     Args:

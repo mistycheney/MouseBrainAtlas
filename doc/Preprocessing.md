@@ -1,6 +1,6 @@
 # Naming convention for processed images #
 
-Every processed image can be uniquely identified by the following information:
+Every processed image can be uniquely identified by a combination of the following information:
 - **image name**: a string that uniquely identifies a physical section.
 - **version**: a word that specifies a channel or the processed result of a particular channel.
 - **resolution**: a word that specifies the pixel resolution.

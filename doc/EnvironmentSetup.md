@@ -28,7 +28,7 @@ Additionally, in `.jupyter/jupyter_notebook_config.py` set `c.NotebookApp.ip = '
 
 The following steps work the same for both AWS and the lab workstation.
 - Run `screen` to open a screen session (so the processes continue even if the terminal/SSH connection is closed)
-- Run `jupyter notebook <project_repo_dir> &` to start a Jupyter notebook in the background.
+- Run `REPO_DIR=<project_repo_dir> jupyter notebook <project_repo_dir> &` to start a Jupyter notebook in the background.
 - Run `screen -d` to detach the screen session.
 
 Then on your local machine,

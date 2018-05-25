@@ -18,10 +18,12 @@ Wait until the cluster creation finishes to see the master node IP, or log onto 
 If using the lab workstation,
 - Log in workstation, `ssh <workstaton_ip>`.
 
-# Set up iPython notebook server
+# Configuring iPython notebook server
 
 http://jupyter-notebook.readthedocs.io/en/stable/public_server.html
 Additionally, set `c.NotebookApp.ip = '*'`.
+
+# Launching iPython notebook server
 
 The following steps work the same for both AWS and the lab workstation.
 - Run `screen` to open a screen session (so the processes continue even if the terminal/SSH connection is closed)

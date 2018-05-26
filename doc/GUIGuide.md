@@ -1,6 +1,6 @@
 # Create/modify annotations using the graphical interface
 
-There are two ways to place annotation on images.
+There are two ways to manipulate annotation on images.
 
 ## Method 1: 3-D reconstruction from manually drawn contours.
 

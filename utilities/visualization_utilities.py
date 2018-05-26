@@ -202,105 +202,455 @@ def export_scoremapPlusAnnotationVizs(bg, stack, names, downscale_factor, sectio
 #                                                         export_filepath_fmt=export_filepath_fmt)
 
 
-def annotation_from_multiple_warped_atlases_overlay_on(bg, warped_volumes_sets, stack_fixed, 
-                                                       volume_downsample=None, 
-                                                       volume_resolution=None,
-                                            fn=None, sec=None, orientation='sagittal',
-                            structures=None, out_downsample=None, out_resolution=None,
-                            users=None, level_colors=None, levels=None, show_text=True, label_color=(0,0,0),
-                             contours=None, contour_width=1, bg_img_version='grayJpeg'):
+def get_structure_contours_from_structure_volumes_v3_volume(volumes, stack, 
+                                                            positions, orientation,
+                                                     resolution, level, 
+                                                     out_resolution,
+                                                     sample_every=1,
+                                                    use_unsided_name_as_key=False):
     """
+    Re-section atlas volumes and obtain structure contours on requested voxel positions.
+    Resolution of output contours are in volume resolution.
+
     Args:
+        volumes (dict of (3D array, 3-tuple)): {structure: (volume, origin_wrt_wholebrain)}. volume is a 3d array of probability values.
+        positions (int list):
+        orientation (str): sagittal, horizontal or coronal.
+        resolution (str): resolution of input volumes.
+        level (float or dict or dict of list): the cut-off probability at which surfaces are generated from probabilistic volumes. Default is 0.5.
+        sample_every (int): how sparse to sample contour vertices.
+        out_resolution (str): resolution of output contours.
+
+    Returns:
+        Dict {section: {name_s: contour vertices}}: wrt alignedBrainstemCrop in raw resolution
+    """
+
+    from collections import defaultdict
+    
+    assert orientation == 'sagittal'
+    
+    structure_contours_wrt_alignedBrainstemCrop_rawResol = defaultdict(lambda: defaultdict(dict))
+
+    converter = CoordinatesConverter(stack=stack, section_list=metadata_cache['sections_to_filenames'][stack].keys())
+
+    converter.register_new_resolution('structure_volume_resol', resol_um=convert_resolution_string_to_um(resolution=resolution, stack=stack))
+    converter.register_new_resolution('intensity_volume_resol', resol_um=convert_resolution_string_to_um(resolution=out_resolution, stack=stack))
+    
+    for name_s, (structure_volume_volResol, origin_wrt_wholebrain_volResol) in volumes.iteritems():
+
+        # Generate structure-specific coordinate frames.
+        converter.derive_three_view_frames(base_frame_name=name_s, 
+        origin_wrt_wholebrain_um=convert_resolution_string_to_um(resolution=resolution, stack=stack) * origin_wrt_wholebrain_volResol,
+        zdim_um=convert_resolution_string_to_um(resolution=resolution, stack=stack) * structure_volume_volResol.shape[2])
+
+        positions_of_all_sections_wrt_structureVolume = converter.convert_frame_and_resolution(
+        p=np.array(positions)[:,None],
+        in_wrt=('wholebrainWithMargin', 'sagittal'), in_resolution='intensity_volume_resol',
+        out_wrt=(name_s, 'sagittal'), out_resolution='structure_volume_resol')[..., 2].flatten()
+            
+        structure_ddim = structure_volume_volResol.shape[2]
+        
+        valid_mask = (positions_of_all_sections_wrt_structureVolume >= 0) & (positions_of_all_sections_wrt_structureVolume < structure_ddim)
+        if np.count_nonzero(valid_mask) == 0:
+#             sys.stderr.write("%s, valid_mask is empty.\n" % name_s)
+            continue
+
+        positions_of_all_sections_wrt_structureVolume = positions_of_all_sections_wrt_structureVolume[valid_mask]
+        positions_of_all_sections_wrt_structureVolume = np.round(positions_of_all_sections_wrt_structureVolume).astype(np.int)
+        
+        if isinstance(level, dict):
+            level_this_structure = level[name_s]
+        else:
+            level_this_structure = level
+
+        if isinstance(level_this_structure, float):
+            level_this_structure = [level_this_structure]
+                        
+        for one_level in level_this_structure:
+
+            contour_2d_wrt_structureVolume_sectionPositions_volResol = \
+            find_contour_points_3d(structure_volume_volResol >= one_level,
+                                    along_direction='sagittal',
+                                    sample_every=sample_every,
+                                    positions=positions_of_all_sections_wrt_structureVolume)
+
+            for d_wrt_structureVolume, cnt_uv_wrt_structureVolume in contour_2d_wrt_structureVolume_sectionPositions_volResol.iteritems():
+
+                contour_3d_wrt_structureVolume_volResol = np.column_stack([cnt_uv_wrt_structureVolume, np.ones((len(cnt_uv_wrt_structureVolume),)) * d_wrt_structureVolume])
+
+    #             contour_3d_wrt_wholebrain_uv_rawResol_section = converter.convert_frame_and_resolution(
+    #                 p=contour_3d_wrt_structureVolume_volResol,
+    #                 in_wrt=(name_s, 'sagittal'), in_resolution='structure_volume',
+    #                 out_wrt=('wholebrain', 'sagittal'), out_resolution='image_image_section')
+
+                contour_3d_wrt_alignedBrainstemCrop_uv_rawResol_section = converter.convert_frame_and_resolution(
+                    p=contour_3d_wrt_structureVolume_volResol,
+                    in_wrt=(name_s, 'sagittal'), in_resolution='structure_volume_resol',
+                    out_wrt=('wholebrainWithMargin', 'sagittal'), out_resolution='intensity_volume_resol')
+
+                assert len(np.unique(contour_3d_wrt_alignedBrainstemCrop_uv_rawResol_section[:,2])) == 1
+                sec = int(contour_3d_wrt_alignedBrainstemCrop_uv_rawResol_section[0,2])
+
+                if use_unsided_name_as_key:
+                    name = convert_to_unsided_label(name_s)
+                else:
+                    name = name_s
+
+                structure_contours_wrt_alignedBrainstemCrop_rawResol[sec][name][one_level] = contour_3d_wrt_alignedBrainstemCrop_uv_rawResol_section[..., :2]
+        
+    return structure_contours_wrt_alignedBrainstemCrop_rawResol
+
+
+def get_structure_contours_from_structure_volumes_v3(volumes, stack, sections, 
+                                                     resolution, level, 
+                                                     out_resolution,
+                                                     sample_every=1,
+                                                    use_unsided_name_as_key=False,
+                                                    ):
+    """
+    Re-section atlas volumes and obtain structure contours on each section.
+    v3 supports multiple levels.
+
+    Args:
+        volumes (dict of (3D array, 3-tuple)): {structure: (volume, origin_wrt_wholebrain)}. volume is a 3d array of probability values.
+        sections (list of int):
+        resolution (str): resolution of input volumes.
+        level (float or dict or dict of list): the cut-off probability at which surfaces are generated from probabilistic volumes. Default is 0.5.
+        sample_every (int): how sparse to sample contour vertices.
+        out_resolution (str): resolution of output contours.
+
+    Returns:
+        Dict {section: {name_s: contour vertices}}: wrt alignedBrainstemCrop in raw resolution
+    """
+
+    from collections import defaultdict
+    
+    structure_contours_wrt_alignedBrainstemCrop_rawResol = defaultdict(lambda: defaultdict(dict))
+
+    converter = CoordinatesConverter(stack=stack, section_list=metadata_cache['sections_to_filenames'][stack].keys())
+
+    converter.register_new_resolution('structure_volume', resol_um=convert_resolution_string_to_um(resolution=resolution, stack=stack))
+    converter.register_new_resolution('image', resol_um=convert_resolution_string_to_um(resolution=out_resolution, stack=stack))
+    
+    for name_s, (structure_volume_volResol, origin_wrt_wholebrain_volResol) in volumes.iteritems():
+
+        # Generate structure-specific coordinate frames.
+        converter.derive_three_view_frames(base_frame_name=name_s, 
+        origin_wrt_wholebrain_um=convert_resolution_string_to_um(resolution=resolution, stack=stack) * origin_wrt_wholebrain_volResol,
+        zdim_um=convert_resolution_string_to_um(resolution=resolution, stack=stack) * structure_volume_volResol.shape[2])
+
+        positions_of_all_sections_wrt_structureVolume = converter.convert_frame_and_resolution(
+        p=np.array(sections)[:,None],
+        in_wrt=('wholebrain', 'sagittal'), in_resolution='section',
+        out_wrt=(name_s, 'sagittal'), out_resolution='structure_volume')[..., 2].flatten()
+            
+        structure_ddim = structure_volume_volResol.shape[2]
+        
+        valid_mask = (positions_of_all_sections_wrt_structureVolume >= 0) & (positions_of_all_sections_wrt_structureVolume < structure_ddim)
+        if np.count_nonzero(valid_mask) == 0:
+#             sys.stderr.write("%s, valid_mask is empty.\n" % name_s)
+            continue
+
+        positions_of_all_sections_wrt_structureVolume = positions_of_all_sections_wrt_structureVolume[valid_mask]
+        positions_of_all_sections_wrt_structureVolume = np.round(positions_of_all_sections_wrt_structureVolume).astype(np.int)
+        
+        if isinstance(level, dict):
+            level_this_structure = level[name_s]
+        else:
+            level_this_structure = level
+
+        if isinstance(level_this_structure, float):
+            level_this_structure = [level_this_structure]
+                                        
+        for one_level in level_this_structure:
+
+            contour_2d_wrt_structureVolume_sectionPositions_volResol = \
+            find_contour_points_3d(structure_volume_volResol >= one_level,
+                                    along_direction='sagittal',
+                                    sample_every=sample_every,
+                                    positions=positions_of_all_sections_wrt_structureVolume)
+
+            for d_wrt_structureVolume, cnt_uv_wrt_structureVolume in contour_2d_wrt_structureVolume_sectionPositions_volResol.iteritems():
+
+                contour_3d_wrt_structureVolume_volResol = np.column_stack([cnt_uv_wrt_structureVolume, np.ones((len(cnt_uv_wrt_structureVolume),)) * d_wrt_structureVolume])
+
+    #             contour_3d_wrt_wholebrain_uv_rawResol_section = converter.convert_frame_and_resolution(
+    #                 p=contour_3d_wrt_structureVolume_volResol,
+    #                 in_wrt=(name_s, 'sagittal'), in_resolution='structure_volume',
+    #                 out_wrt=('wholebrain', 'sagittal'), out_resolution='image_image_section')
+
+                contour_3d_wrt_alignedBrainstemCrop_uv_rawResol_section = converter.convert_frame_and_resolution(
+                    p=contour_3d_wrt_structureVolume_volResol,
+                    in_wrt=(name_s, 'sagittal'), in_resolution='structure_volume',
+                    out_wrt=('wholebrainXYcropped', 'sagittal'), out_resolution='image_image_section')
+
+                assert len(np.unique(contour_3d_wrt_alignedBrainstemCrop_uv_rawResol_section[:,2])) == 1
+                sec = int(contour_3d_wrt_alignedBrainstemCrop_uv_rawResol_section[0,2])
+
+                if use_unsided_name_as_key:
+                    name = convert_to_unsided_label(name_s)
+                else:
+                    name = name_s
+
+                structure_contours_wrt_alignedBrainstemCrop_rawResol[sec][name][one_level] = contour_3d_wrt_alignedBrainstemCrop_uv_rawResol_section[..., :2]
+        
+    return structure_contours_wrt_alignedBrainstemCrop_rawResol
+
+
+def annotation_from_multiple_warped_atlases_overlay_on_volume(warped_volumes_sets, 
+                                                              stack_fixed, 
+                                                          volume_resolution=None,
+                                                          fn=None, sections=None, orientation='sagittal',
+                                                          structures=None, out_resolution=None,
+                                                          level_colors=None, levels=None, show_text=True, label_color=(0,0,0),
+                                                          contours=None, contour_width=1,
+                                                             bg_volume=None):
+    """
+    Overlay contours on the intensity volume of the given brain.
+
+    Args:
+        volume_resolution (str): resolution of the loaded volume.
+        out_resolution (str): resolution of the output images.
+        structures (str list): list of structures to draw.
         warped_volumes_sets ({set_name: {structure: (3d probability array, (3,)-array origin wrt wholebrain)}})
         levels (list of float): probability levels at which the contours are drawn.
         level_colors (dict {set_name: dict {float: (3,)-ndarray of float}}): 256-based contour color for each level for each set
+        contour_width (int): contour line width in pixels on output images.
     """
-
-    wholebrainXYcropped_origin_wrt_wholebrain = DataManager.get_domain_origin(stack=stack_fixed, 
-                                                                              domain='wholebrainXYcropped',
-                                                                             resolution=volume_resolution)
-    # This is down32 of the raw resolution of the given stack.
+    
+    assert orientation == 'sagittal', 'This function currently only supports drawing on sagittal sections.'
     
     if level_colors is None:
-        level_colors = {set_name: {0.1: (0,255,255),
-                    0.25: (0,255,0),
-                    0.5: (255,0,0),
-                    0.75: (255,255,0),
-                    0.99: (255,0,255)} for set_name in warped_volumes_sets.keys()}
+        level_colors = {set_name: LEVEL_TO_COLOR_LINE 
+                        for set_name in warped_volumes_sets.keys()}        
 
     if levels is None:
         levels = level_colors.values()[0].keys()
-
-    volume_resolution_um = convert_resolution_string_to_voxel_size(resolution=volume_resolution, stack=stack_fixed)
-        
-    t = time.time()
-
-    if bg == 'original':
-
-        # if out_downsample == 32:
-        #     resol_str = 'thumbnail'
-        # elif out_downsample == 1:
-        #     resol_str = 'lossless'
-        # else:
-        #     resol_str = 'down'+str(out_downsample)
-
-        out_resolution_um = convert_resolution_string_to_voxel_size(resolution=out_resolution, stack=stack_fixed)
-        if stack_fixed == 'ChatCryoJane201710':
-            out_downsample = out_resolution_um / XY_PIXEL_DISTANCE_LOSSLESS_AXIOSCAN
-        else:
-            out_downsample = out_resolution_um / XY_PIXEL_DISTANCE_LOSSLESS
-
-        try:
-            bg = DataManager.load_image_v2(stack=stack_fixed, section=sec, fn=fn, resol=out_resolution, prep_id=2, version=bg_img_version)
-        except Exception as e:
-            sys.stderr.write('Cannot load downsampled jpeg, load lossless instead: %s.\n' % e)
-            bg = DataManager.load_image_v2(stack=stack_fixed, section=sec, fn=fn, resol='lossless', prep_id=2, version=bg_img_version)
-            bg = rescale_by_resampling(bg, 1./out_downsample)
+            
+    contours_all_sets_all_sections_all_structures_all_levels_outResol = \
+    {set_name: \
+     get_structure_contours_from_structure_volumes_v3_volume(volumes={s: warped_volumes_sets[set_name][s] 
+                                                                  for s in structures}, 
+                                                         stack=stack_fixed, 
+                                                            positions=np.arange(0,1000), 
+                                                        orientation='sagittal',                                                        resolution=volume_resolution, 
+                                                         out_resolution=out_resolution,
+                                                         level=levels, 
+                                                         sample_every=5)
+    for set_name in warped_volumes_sets.keys()}
                 
-    if bg.ndim == 2:
-        bg = gray2rgb(bg)
+    sections_spanned = set.union(*[set(x.keys()) for set_name, x in contours_all_sets_all_sections_all_structures_all_levels_outResol.iteritems()])
+        
+    vizs_all_sections = {}
+        
+    for sec in sections_spanned:
 
-    viz = bg.copy()
+        viz = bg_volume[..., sec].copy()
 
-    assert orientation == 'sagittal', 'Currently only support drawing on sagittal sections'
+        # Convert to RGB so colored contours can be drawn on it.
+        if viz.ndim == 2:
+            viz = gray2rgb(viz)
 
-    z_wrt_wholebrain = DataManager.convert_section_to_z(stack=stack_fixed, sec=sec, resolution=volume_resolution, mid=True, z_begin=0)
+        for set_name, cnts_all_sections_all_structures_all_levels_outResol \
+        in contours_all_sets_all_sections_all_structures_all_levels_outResol.iteritems():            
+        
+            for name_s, cnt_all_levels_outResol in cnts_all_sections_all_structures_all_levels_outResol[sec].iteritems():
 
-    # Find moving volume annotation contours.
-    # for set_name, warped_volumes in warped_volumes_sets.iteritems():
-    #     for name_s, vol in warped_volumes.iteritems():
-    for set_name in warped_volumes_sets.keys(): # This avoids loading entire warped_volumes (maybe?)
-        for name_s, (vol, vol_origin_wrt_wholebrain) in warped_volumes_sets[set_name].iteritems():
-            # structure does not include level z, skip
-            bbox = bbox_3d(vol)
-            zmin_wrt_wholebrain = bbox[4] + vol_origin_wrt_wholebrain[2]
-            zmax_wrt_wholebrain = bbox[5] + vol_origin_wrt_wholebrain[2]
-            # print zmin_wrt_wholebrain, zmax_wrt_wholebrain, z_wrt_wholebrain
-            if z_wrt_wholebrain < zmin_wrt_wholebrain or z_wrt_wholebrain > zmax_wrt_wholebrain:
-                continue
+                if show_text:
+                    # Put label at the center of the contour of arbitrary level.
+                    label_pos_outResol = np.mean(cnt_all_levels_outResol.values()[0], axis=0)
+                    cv2.putText(viz, name_s, tuple(label_pos_outResol.astype(np.int)),
+                            cv2.FONT_HERSHEY_DUPLEX, 1, (label_color), 3)
 
-            print set_name, name_s
+                for level in set(cnt_all_levels_outResol.keys()) & set(levels):
+                    cnt_outResol = cnt_all_levels_outResol[level]
+                    cv2.polylines(viz, [cnt_outResol.astype(np.int)], 
+                                  isClosed=True, 
+                                  color=level_colors[set_name][level], 
+                                  thickness=contour_width)
 
-            label_pos = None
+        vizs_all_sections[sec] = viz
 
-            for level in levels:
-                cnts_rc_wrt_vol = find_contours(vol[..., int(np.round(z_wrt_wholebrain - vol_origin_wrt_wholebrain[2]))], level=level)
-                for cnt_rc_wrt_vol in cnts_rc_wrt_vol:
-                    cnt_wrt_cropped_volRes = cnt_rc_wrt_vol[:,::-1] + (vol_origin_wrt_wholebrain[0], vol_origin_wrt_wholebrain[1]) - wholebrainXYcropped_origin_wrt_wholebrain[:2]
-                    cnt_wrt_cropped_imgRes = cnt_wrt_cropped_volRes * volume_resolution_um / out_resolution_um
-                    cv2.polylines(viz, [cnt_wrt_cropped_imgRes.astype(np.int)],
-                                  True, level_colors[set_name][level], contour_width)
+    return vizs_all_sections
 
-                    if show_text:
-                        if label_pos is None:
-                            label_pos = np.mean(cnt_wrt_cropped_imgRes, axis=0)
 
-            # Show text
-            if label_pos is not None:
-                cv2.putText(viz, name_s, tuple(label_pos.astype(np.int)),
-                        cv2.FONT_HERSHEY_DUPLEX, 1, (label_color), 3)
+def annotation_from_multiple_warped_atlases_overlay_on_v2(warped_volumes_sets, stack_fixed, 
+                                                       volume_resolution=None,
+                                            fn=None, sections=None, orientation='sagittal',
+                            structures=None, 
+                                                          out_resolution=None,
+                            level_colors=None, levels=None, show_text=True, label_color=(0,0,0),
+                             contours=None, contour_width=1, bg_img_version='grayJpeg'):
+    """
+    Args:
+        bg_img_version (str): version of the background image.
+        volume_resolution (str): resolution of the loaded volume.
+        out_resolution (str): resolution of the output images.
+        structures (str list): list of structures to draw.
+        warped_volumes_sets ({set_name: {structure: (3d probability array, (3,)-array origin wrt wholebrain)}})
+        levels (list of float): probability levels at which the contours are drawn.
+        level_colors (dict {set_name: dict {float: (3,)-ndarray of float}}): 256-based contour color for each level for each set
+        contour_width (int): contour line width in pixels on output images.
+    """
+    
+    assert orientation == 'sagittal', 'This function currently only supports drawing on sagittal sections.'
+    
+    if level_colors is None:
+        level_colors = {set_name: LEVEL_TO_COLOR_LINE 
+                        for set_name in warped_volumes_sets.keys()}        
 
-    return viz
+    if levels is None:
+        levels = level_colors.values()[0].keys()
+            
+    contours_all_sets_all_sections_all_structures_all_levels_outResol = \
+    {set_name: \
+     get_structure_contours_from_structure_volumes_v3(volumes={s: warped_volumes_sets[set_name][s] 
+                                                                  for s in structures}, 
+                                                         stack=stack_fixed, 
+                                                         sections=sections,
+                                                        resolution=volume_resolution, 
+                                                         out_resolution=out_resolution,
+                                                         level=levels, 
+                                                         sample_every=5)
+    for set_name in warped_volumes_sets.keys()}
+                
+    sections_spanned = set.union(*[set(x.keys()) for set_name, x in contours_all_sets_all_sections_all_structures_all_levels_outResol.iteritems()])
+        
+    vizs_all_sections = {}
+        
+    for sec in sections_spanned:
+
+        if is_invalid(sec=sec, stack=stack_fixed):
+            continue
+
+        viz = DataManager.load_image_v2(stack=stack_fixed, prep_id=2, resol=out_resolution, version=bg_img_version, section=sec)
+
+        # Convert to RGB so colored contours can be drawn on it.
+        if viz.ndim == 2:
+            viz = gray2rgb(viz)
+
+        for set_name, cnts_all_sections_all_structures_all_levels_outResol \
+        in contours_all_sets_all_sections_all_structures_all_levels_outResol.iteritems():            
+        
+            for name_s, cnt_all_levels_outResol in cnts_all_sections_all_structures_all_levels_outResol[sec].iteritems():
+
+                if show_text:
+                    # Put label at the center of the contour of arbitrary level.
+                    label_pos_outResol = np.mean(cnt_all_levels_outResol.values()[0], axis=0)
+                    cv2.putText(viz, name_s, tuple(label_pos_outResol.astype(np.int)),
+                            cv2.FONT_HERSHEY_DUPLEX, 1, (label_color), 3)
+
+                for level in set(cnt_all_levels_outResol.keys()) & set(levels):
+                    cnt_outResol = cnt_all_levels_outResol[level]
+                    cv2.polylines(viz, [cnt_outResol.astype(np.int)], 
+                                  isClosed=True, 
+                                  color=level_colors[set_name][level], 
+                                  thickness=contour_width)
+
+        vizs_all_sections[sec] = viz
+
+    return vizs_all_sections
+
+
+# def annotation_from_multiple_warped_atlases_overlay_on(bg, warped_volumes_sets, stack_fixed, 
+#                                                        volume_downsample=None, 
+#                                                        volume_resolution=None,
+#                                             fn=None, sec=None, orientation='sagittal',
+#                             structures=None, out_downsample=None, out_resolution=None,
+#                             users=None, level_colors=None, levels=None, show_text=True, label_color=(0,0,0),
+#                              contours=None, contour_width=1, bg_img_version='grayJpeg'):
+#     """
+#     Args:
+#         warped_volumes_sets ({set_name: {structure: (3d probability array, (3,)-array origin wrt wholebrain)}})
+#         levels (list of float): probability levels at which the contours are drawn.
+#         level_colors (dict {set_name: dict {float: (3,)-ndarray of float}}): 256-based contour color for each level for each set
+#     """
+
+#     wholebrainXYcropped_origin_wrt_wholebrain = DataManager.get_domain_origin(stack=stack_fixed, 
+#                                                                               domain='wholebrainXYcropped',
+#                                                                              resolution=volume_resolution)
+#     # This is down32 of the raw resolution of the given stack.
+    
+#     if level_colors is None:
+#         level_colors = {set_name: {0.1: (0,255,255),
+#                     0.25: (0,255,0),
+#                     0.5: (255,0,0),
+#                     0.75: (255,255,0),
+#                     0.99: (255,0,255)} for set_name in warped_volumes_sets.keys()}
+
+#     if levels is None:
+#         levels = level_colors.values()[0].keys()
+
+#     volume_resolution_um = convert_resolution_string_to_voxel_size(resolution=volume_resolution, stack=stack_fixed)
+        
+#     t = time.time()
+
+#     if bg == 'original':
+
+#         # if out_downsample == 32:
+#         #     resol_str = 'thumbnail'
+#         # elif out_downsample == 1:
+#         #     resol_str = 'lossless'
+#         # else:
+#         #     resol_str = 'down'+str(out_downsample)
+
+#         out_resolution_um = convert_resolution_string_to_voxel_size(resolution=out_resolution, stack=stack_fixed)
+#         if stack_fixed == 'ChatCryoJane201710':
+#             out_downsample = out_resolution_um / XY_PIXEL_DISTANCE_LOSSLESS_AXIOSCAN
+#         else:
+#             out_downsample = out_resolution_um / XY_PIXEL_DISTANCE_LOSSLESS
+
+#         try:
+#             bg = DataManager.load_image_v2(stack=stack_fixed, section=sec, fn=fn, resol=out_resolution, prep_id=2, version=bg_img_version)
+#         except Exception as e:
+#             sys.stderr.write('Cannot load downsampled jpeg, load lossless instead: %s.\n' % e)
+#             bg = DataManager.load_image_v2(stack=stack_fixed, section=sec, fn=fn, resol='lossless', prep_id=2, version=bg_img_version)
+#             bg = rescale_by_resampling(bg, 1./out_downsample)
+                
+#     if bg.ndim == 2:
+#         bg = gray2rgb(bg)
+
+#     viz = bg.copy()
+
+#     assert orientation == 'sagittal', 'Currently only support drawing on sagittal sections'
+
+#     z_wrt_wholebrain = DataManager.convert_section_to_z(stack=stack_fixed, sec=sec, resolution=volume_resolution, mid=True, z_begin=0)
+
+#     # Find moving volume annotation contours.
+#     # for set_name, warped_volumes in warped_volumes_sets.iteritems():
+#     #     for name_s, vol in warped_volumes.iteritems():
+#     for set_name in warped_volumes_sets.keys(): # This avoids loading entire warped_volumes (maybe?)
+#         for name_s, (vol, vol_origin_wrt_wholebrain) in warped_volumes_sets[set_name].iteritems():
+#             # structure does not include level z, skip
+#             bbox = bbox_3d(vol)
+#             zmin_wrt_wholebrain = bbox[4] + vol_origin_wrt_wholebrain[2]
+#             zmax_wrt_wholebrain = bbox[5] + vol_origin_wrt_wholebrain[2]
+#             # print zmin_wrt_wholebrain, zmax_wrt_wholebrain, z_wrt_wholebrain
+#             if z_wrt_wholebrain < zmin_wrt_wholebrain or z_wrt_wholebrain > zmax_wrt_wholebrain:
+#                 continue
+
+#             print set_name, name_s
+
+#             label_pos = None
+
+#             for level in levels:
+#                 cnts_rc_wrt_vol = find_contours(vol[..., int(np.round(z_wrt_wholebrain - vol_origin_wrt_wholebrain[2]))], level=level)
+#                 for cnt_rc_wrt_vol in cnts_rc_wrt_vol:
+#                     cnt_wrt_cropped_volRes = cnt_rc_wrt_vol[:,::-1] + (vol_origin_wrt_wholebrain[0], vol_origin_wrt_wholebrain[1]) - wholebrainXYcropped_origin_wrt_wholebrain[:2]
+#                     cnt_wrt_cropped_imgRes = cnt_wrt_cropped_volRes * volume_resolution_um / out_resolution_um
+#                     cv2.polylines(viz, [cnt_wrt_cropped_imgRes.astype(np.int)],
+#                                   True, level_colors[set_name][level], contour_width)
+
+#                     if show_text:
+#                         if label_pos is None:
+#                             label_pos = np.mean(cnt_wrt_cropped_imgRes, axis=0)
+
+#             # Show text
+#             if label_pos is not None:
+#                 cv2.putText(viz, name_s, tuple(label_pos.astype(np.int)),
+#                         cv2.FONT_HERSHEY_DUPLEX, 1, (label_color), 3)
+
+#     return viz
 
 def annotation_by_human_overlay_on(bg, stack=None, fn=None, sec=None, orientation='sagittal',
                             structures=None, out_downsample=8,
@@ -310,6 +660,7 @@ def annotation_by_human_overlay_on(bg, stack=None, fn=None, sec=None, orientatio
     Draw annotation contours on a user-given background image.
 
     Args:
+        timestamp (str): timestamp of the annnotation file to load.
         out_downsample (int): downsample factor of the output images.
         structures (list of str): list of structure names (sided) to show.
         contours (pandas.DataFrame): rows are polygon indices.

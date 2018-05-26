@@ -130,16 +130,19 @@ class CoordinatesConverter(object):
 
             # Define frame:wholebrainWithMargin
             intensity_volume_spec = dict(name=stack, resolution='10.0um', prep_id='wholebrainWithMargin', vol_type='intensity')
-            _, (thumbnail_volume_origin_wrt_wholebrain_dataResol_x, thumbnail_volume_origin_wrt_wholebrain_dataResol_y, _) = \
-            DataManager.load_original_volume_v2(intensity_volume_spec, return_origin_instead_of_bbox=True)
+            _, thumbnail_volume_origin_wrt_wholebrain_10um = DataManager.load_original_volume_v2(intensity_volume_spec, return_origin_instead_of_bbox=True)
+            thumbnail_volume_origin_wrt_wholebrain_um = thumbnail_volume_origin_wrt_wholebrain_10um * 10.
 
-            thumbnail_volume_origin_wrt_wholebrain_um = np.r_[thumbnail_volume_origin_wrt_wholebrain_dataResol_x * 10., thumbnail_volume_origin_wrt_wholebrain_dataResol_y * 10., 0.]
+#             _, (thumbnail_volume_origin_wrt_wholebrain_dataResol_x, thumbnail_volume_origin_wrt_wholebrain_dataResol_y, _) = \
+#             DataManager.load_original_volume_v2(intensity_volume_spec, return_origin_instead_of_bbox=True)
+
+#             thumbnail_volume_origin_wrt_wholebrain_um = np.r_[thumbnail_volume_origin_wrt_wholebrain_dataResol_x * 10., thumbnail_volume_origin_wrt_wholebrain_dataResol_y * 10., 0.]
 
             self.derive_three_view_frames(base_frame_name='wholebrainWithMargin',
                                    origin_wrt_wholebrain_um=thumbnail_volume_origin_wrt_wholebrain_um)
 
-            # Define resolution:image
-            self.register_new_resolution('image', convert_resolution_string_to_um(resolution='raw', stack=stack))
+            # Define resolution:raw
+            self.register_new_resolution('raw', convert_resolution_string_to_um(resolution='raw', stack=stack))
 
         if section_list is not None:
             self.section_list = section_list
@@ -163,7 +166,11 @@ class CoordinatesConverter(object):
 
     def derive_three_view_frames(self, base_frame_name, origin_wrt_wholebrain_um=(0,0,0), zdim_um=None):
         """
-        Generate the three new frames that correspond to three orthogonal views.
+        Generate three new coordinate frames, based on a given bounding box.
+        Names of the new frames are <base_frame_name>_sagittal, <base_frame_name>_coronal and <base_frame_name>_horizontal.
+        
+        Args:
+            base_frame_name (str):
         """
 
         if base_frame_name == 'data': # define by data feeder
@@ -428,11 +435,11 @@ class CoordinatesConverter(object):
         - x_coronal: frame of lo-res coronal scene = coronal frame of the intensity volume, with origin at the most left/rostral/dorsal position.
         - x_horizontal: frame of lo-res horizontal scene = horizontal frame of the intensity volume, with origin at the most left/rostral/dorsal position.
 
-        2-D frames include:
+        Build-in 2-D frames include:
         - {0: 'original', 1: 'alignedPadded', 2: 'alignedCroppedBrainstem', 3: 'alignedCroppedThalamus', 4: 'alignedNoMargin', 5: 'alignedWithMargin', 6: 'originalCropped'}
 
-        Resolution specifies the physical units of the coodrinate axes.
-        `resolution` for 3-D coordinates can be any of these strings:
+        Resolution specifies the physical units of the coordinate axes.
+        Build-in `resolution` for 3-D coordinates can be any of these strings:
         - raw
         - down32
         - vol
@@ -2513,7 +2520,7 @@ class DataManager(object):
                                                      trial_idx=None,
                                                      return_label_mappings=False,
                                                      name_or_index_as_key='name',
-                                                     common_shape=True,
+                                                     common_shape=False,
                                                         return_origin_instead_of_bbox=False,
                                                         legacy=False,
 ):
@@ -4502,8 +4509,10 @@ class DataManager(object):
                                                        section=section, fn=fn, data_dir=data_dir, ext=ext,
                                                       thumbnail_data_dir=thumbnail_data_dir)
 
-        if not os.path.exists(img_fp):
+        sys.stderr.write("Trying to load %s\n" % img_fp)
         
+        if not os.path.exists(img_fp):
+            sys.stderr.write('File not on local disk. Download from S3.\n')
             if resol == 'lossless' or resol == 'raw' or resol == 'down8':
                 download_from_s3(img_fp, local_root=DATA_ROOTDIR)
             else:
@@ -4519,78 +4528,87 @@ class DataManager(object):
                 img = cv2.imread(img_fp, -1)
                 if img is None:
                     img = imread(img_fp, -1)
-                    if img is None:
-                        raise Exception("Image loading returns None")
-                image_cache[args_tuple] = img
-                sys.stderr.write("Image %s is cached.\n" % os.path.basename(img_fp))
+                    # if img is None:
+                    #     raise Exception("Image loading returns None: %s" % img_fp)
+                        
+                if img is not None:
+                    image_cache[args_tuple] = img
+                    sys.stderr.write("Image %s is now cached.\n" % os.path.basename(img_fp))
         else:
-            sys.stderr.write("Not using image_cache.\n")
+            # sys.stderr.write("Not using image_cache.\n")
             img = cv2.imread(img_fp, -1)
             if img is None:
+                sys.stderr.write("cv2.imread fails to load. Try skimage.imread.\n")
                 try:
                     img = imread(img_fp, -1)
                 except:
-                    img = None
-                    # raise Exception("Image loading failed.")
-                # if img is None:
-                    # raise Exception("Image loading returns None")
-            print img_fp
-
-        if img is None:
-            if version == 'blue':
-                img = DataManager.load_image_v2(stack=stack, prep_id=prep_id, resol=resol, version=None, section=section, fn=fn, data_dir=data_dir, ext=ext, thumbnail_data_dir=thumbnail_data_dir)[..., 2]
-            elif version == 'grayJpeg':
-                sys.stderr.write("Version %s is not available. Instead, load raw RGB JPEG and convert to uint8 grayscale...\n" % version)
-                img = DataManager.load_image_v2(stack=stack, prep_id=prep_id, resol=resol, version='jpeg', section=section, fn=fn, data_dir=data_dir, ext=ext, thumbnail_data_dir=thumbnail_data_dir)
-                img = img_as_ubyte(rgb2gray(img))
-            elif version == 'gray':
-                sys.stderr.write("Version %s is not available. Instead, load raw RGB and convert to uint8 grayscale...\n" % version)
-                img = DataManager.load_image_v2(stack=stack, prep_id=prep_id, resol=resol, version=None, section=section, fn=fn, data_dir=data_dir, ext=ext, thumbnail_data_dir=thumbnail_data_dir)
-                img = img_as_ubyte(rgb2gray(img))
-            elif version == 'Ntb':
-                sys.stderr.write("Version %s is not available. Instead, load lossless and take the blue channel...\n" % version)
-                img = DataManager.load_image_v2(stack=stack, prep_id=prep_id, resol=resol, version=None, section=section, fn=fn, data_dir=data_dir, ext=ext, thumbnail_data_dir=thumbnail_data_dir)
-                img = img[..., 2]
-            elif version == 'mask' and (resol == 'down32' or resol == 'thumbnail'):
-                if isinstance(prep_id, str):
-                    prep_id = prep_str_to_id_2d[prep_id]
+                    sys.stderr.write("skimage.imread fails to load.\n")
+                    img = None                    
                     
-                if prep_id == 2:
-                    # get prep 2 masks directly from prep 5 masks.
-                    try:
-                        sys.stderr.write('Try finding prep5 masks.\n')
-                        mask_prep5 = DataManager.load_image_v2(stack=stack, section=section, fn=fn, prep_id=5, version='mask', resol='thumbnail')
-                        # fp = DataManager.get_thumbnail_mask_filename_v3()
-                        # download_from_s3(fp, local_root=THUMBNAIL_DATA_ROOTDIR)
-                        # mask_prep5 = imread(fp).astype(np.bool)
+        if img is None:
+            sys.stderr.write("Image fails to load. Trying to convert from other resol/versions.\n")
+            
+            if resol != 'raw':
+                try:
+                    sys.stderr.write("Resolution %s is not available. Instead, try loading raw and then downscale...\n" % resol)
+                    img = DataManager.load_image_v2(stack=stack, prep_id=prep_id, resol='raw', version=version, section=section, fn=fn, data_dir=data_dir, ext=ext, thumbnail_data_dir=thumbnail_data_dir)
+                    
+                    downscale_factor = convert_resolution_string_to_um(resolution='raw', stack=stack)/convert_resolution_string_to_um(resolution=resol, stack=stack)
+                    img = rescale_by_resampling(img, downscale_factor)
+                except:
+                    sys.stderr.write('Cannot load raw either.')
+            
+                    if version == 'blue':
+                        img = DataManager.load_image_v2(stack=stack, prep_id=prep_id, resol=resol, version=None, section=section, fn=fn, data_dir=data_dir, ext=ext, thumbnail_data_dir=thumbnail_data_dir)[..., 2]
+                    elif version == 'grayJpeg':
+                        sys.stderr.write("Version %s is not available. Instead, load raw RGB JPEG and convert to uint8 grayscale...\n" % version)
+                        img = DataManager.load_image_v2(stack=stack, prep_id=prep_id, resol=resol, version='jpeg', section=section, fn=fn, data_dir=data_dir, ext=ext, thumbnail_data_dir=thumbnail_data_dir)
+                        img = img_as_ubyte(rgb2gray(img))
+                    elif version == 'gray':
+                        sys.stderr.write("Version %s is not available. Instead, load raw RGB and convert to uint8 grayscale...\n" % version)
+                        img = DataManager.load_image_v2(stack=stack, prep_id=prep_id, resol=resol, version=None, section=section, fn=fn, data_dir=data_dir, ext=ext, thumbnail_data_dir=thumbnail_data_dir)
+                        img = img_as_ubyte(rgb2gray(img))
+                    elif version == 'Ntb':
+                        sys.stderr.write("Version %s is not available. Instead, load lossless and take the blue channel...\n" % version)
+                        img = DataManager.load_image_v2(stack=stack, prep_id=prep_id, resol=resol, version=None, section=section, fn=fn, data_dir=data_dir, ext=ext, thumbnail_data_dir=thumbnail_data_dir)
+                        img = img[..., 2]
+                    elif version == 'mask' and (resol == 'down32' or resol == 'thumbnail'):
+                        if isinstance(prep_id, str):
+                            prep_id = prep_str_to_id_2d[prep_id]
 
-                        xmin,xmax,ymin,ymax = DataManager.load_cropbox_v2_relative(stack=stack, prep_id=prep_id, wrt_prep_id=5, out_resolution='down32')
-                        mask_prep2 = mask_prep5[ymin:ymax+1, xmin:xmax+1].copy()
-                        return mask_prep2.astype(np.bool)
-                    except:                            
-                        # get prep 2 masks directly from prep 1 masks.
-                        sys.stderr.write('Cannot load mask %s, section=%s, fn=%s, prep=%s\n' % (stack, section, fn, prep_id))
-                        sys.stderr.write('Try finding prep1 masks.\n')
-                        mask_prep1 = DataManager.load_image_v2(stack=stack, section=section, fn=fn, prep_id=1, version='mask', resol='thumbnail')
-                        # fp = DataManager.get_thumbnail_mask_filename_v3(stack=stack, section=section, fn=fn, prep_id=1)
-                        # download_from_s3(fp, local_root=THUMBNAIL_DATA_ROOTDIR)
-                        # mask_prep1 = imread(fp).astype(np.bool)
+                        if prep_id == 5:
+                            sys.stderr.write('Cannot load mask %s, section=%s, fn=%s, prep=%s\n' % (stack, section, fn, prep_id))
+                            sys.stderr.write('Try finding prep1 masks.\n')
+                            mask_prep1 = DataManager.load_image_v2(stack=stack, section=section, fn=fn, prep_id=1, version='mask', resol='thumbnail')
+                            xmin,xmax,ymin,ymax = DataManager.load_cropbox_v2(stack=stack, prep_id=prep_id, return_dict=False, only_2d=True)
+                            mask_prep2 = mask_prep1[ymin:ymax+1, xmin:xmax+1].copy()
+                            return mask_prep2.astype(np.bool)
 
-                        xmin,xmax,ymin,ymax = DataManager.load_cropbox_v2(stack=stack, prep_id=prep_id, return_dict=False, only_2d=True)
-                        mask_prep2 = mask_prep1[ymin:ymax+1, xmin:xmax+1].copy()
-                        return mask_prep2.astype(np.bool)
-                else:
-                    try:
-                        # fp = DataManager.get_thumbnail_mask_filename_v3(stack=stack, section=section, fn=fn, prep_id=prep_id)
-                        # download_from_s3(fp, local_root=THUMBNAIL_DATA_ROOTDIR)
-                        # mask = imread(fp).astype(np.bool)
-                        mask = DataManager.load_image_v2(stack=stack, section=section, fn=fn, prep_id=prep_id, version='mask', resol='down32')
-                        return mask.astype(np.bool)
-                    except:
-                        sys.stderr.write('Cannot load mask %s, section=%s, fn=%s, prep=%s\n' % (stack, section, fn, prep_id))
-            else:
-                sys.stderr.write("%s cannot be loaded." % version)
-                raise Exception("Image loading failed.")
+                        elif prep_id == 2:
+                            # get prep 2 masks directly from prep 5 masks.
+                            try:
+                                sys.stderr.write('Try finding prep5 masks.\n')
+                                mask_prep5 = DataManager.load_image_v2(stack=stack, section=section, fn=fn, prep_id=5, version='mask', resol='thumbnail')
+                                xmin,xmax,ymin,ymax = DataManager.load_cropbox_v2_relative(stack=stack, prep_id=prep_id, wrt_prep_id=5, out_resolution='down32')
+                                mask_prep2 = mask_prep5[ymin:ymax+1, xmin:xmax+1].copy()
+                                return mask_prep2.astype(np.bool)
+                            except:                            
+                                # get prep 2 masks directly from prep 1 masks.
+                                sys.stderr.write('Cannot load mask %s, section=%s, fn=%s, prep=%s\n' % (stack, section, fn, prep_id))
+                                sys.stderr.write('Try finding prep1 masks.\n')
+                                mask_prep1 = DataManager.load_image_v2(stack=stack, section=section, fn=fn, prep_id=1, version='mask', resol='thumbnail')
+                                xmin,xmax,ymin,ymax = DataManager.load_cropbox_v2(stack=stack, prep_id=prep_id, return_dict=False, only_2d=True)
+                                mask_prep2 = mask_prep1[ymin:ymax+1, xmin:xmax+1].copy()
+                                return mask_prep2.astype(np.bool)
+                        else:
+                            try:
+                                mask = DataManager.load_image_v2(stack=stack, section=section, fn=fn, prep_id=prep_id, version='mask', resol='down32')
+                                return mask.astype(np.bool)
+                            except:
+                                sys.stderr.write('Cannot load mask %s, section=%s, fn=%s, prep=%s\n' % (stack, section, fn, prep_id))
+                    else:
+                        sys.stderr.write('Cannot load stack=%s, section=%s, fn=%s, prep=%s, version=%s, resolution=%s\n' % (stack, section, fn, prep_id, version, resol))
+                        raise Exception("Image loading failed.")
 
         if version == 'mask':
             img = img.astype(np.bool)

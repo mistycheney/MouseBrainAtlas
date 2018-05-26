@@ -320,9 +320,9 @@ def convert_resolution_string_to_voxel_size(resolution, stack=None):
     elif resolution == 'lossless' or resolution == 'down1' or resolution == 'raw':
         assert stack is not None
         return planar_resolution[stack]
-    elif resolution == 'down8':
+    elif resolution.startswith('down'):
         assert stack is not None
-        return planar_resolution[stack] * 8.
+        return planar_resolution[stack] * int(resolution[4:])
     elif resolution == 'um':
         return 1.
     elif resolution.endswith('um'):

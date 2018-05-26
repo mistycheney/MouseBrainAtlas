@@ -1,4 +1,4 @@
-# Create annotations using the graphical interface
+# Create/modify annotations using the graphical interface
 
 There are two ways to place annotation on images.
 

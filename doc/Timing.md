@@ -111,6 +111,8 @@ Overall, if features are pre-computed and background images already exist, 8 s/s
 negligible
 
 ## Local registration
-
+- Optimize: ~30s/structure
+- Transform moving brain: 0.1s/structure
+- Save transformed moving brain: 
 
 

@@ -6,7 +6,7 @@ raw -> raw_Ntb:
 
 ### For thionin data
 * raw -> thumbnail
-* **Compute tranforms using thumbnail**
+* **Compute tranforms using thumbnail**: 40min/stack
 * thumbnail -> prep1_thumbnail
 * **Supply prep1_thumbnail_mask**
 * prep1_thumbnail_mask -> thumbnail_mask

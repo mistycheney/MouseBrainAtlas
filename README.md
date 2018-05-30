@@ -3,7 +3,7 @@
 
 # Data
 
-[Figures and plots for paper](https://www.dropbox.com/sh/42cl7qb27i3c0sx/AAA1WXbFP8W5EzAFQguUSu1ba?dl=0)
+Figures and plots for paper ([dropbox](https://www.dropbox.com/sh/42cl7qb27i3c0sx/AAA1WXbFP8W5EzAFQguUSu1ba?dl=0))
 
 
 # Code Structure

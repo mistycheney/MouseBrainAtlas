@@ -5,7 +5,8 @@
 `annotation/construct_annotation_volume_from_annotation_files_v5.ipynb`
 
 Output are at
-`CSHL_meshes/<brain_name>/<brain_name>_10.0um_annotationAsScoreVolume/<brain_name>_10.0um_annotationAsScoreVolume_<sided_or_surround_structure>.stl`
+- `CSHL_volumes/<brain_name>/<brain_name>_10.0um_annotationAsScoreVolume/<brain_name>_10.0um_annotationAsScoreVolume_<sided_or_surround_structure>.bp`
+- `CSHL_volumes/<brain_name>/<brain_name>_10.0um_annotationAsScoreVolume/<brain_name>_10.0um_annotationAsScoreVolume_<sided_or_surround_structure>_origin_wrt_wholebrain.txt`
 
 ## Average annotation volumes to build atlas
 

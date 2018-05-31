@@ -1042,7 +1042,7 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
             elif name_s == 'All atlas structures':
                 label_indices_lookup = self.get_label_indices_lookup(only_use_confirmed_sides=False)
                 for s in set(label_indices_lookup.keys()) & set(all_known_structures_sided):
-                    self.structure_volume_updated.emit('handdrawn', s, True, True)
+                    self.structure_volume_updated.emit('handdrawn', s, False, True)
             else:
                 self.structure_volume_updated.emit('handdrawn', name_s, False, True)
 

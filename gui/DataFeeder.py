@@ -368,14 +368,14 @@ class VolumeResectionDataFeeder(object):
 
         if orientation == 'horizontal':
             y = i
-            horizontal_data = self.volume[y, :, ::-1].T.flatten()
+            horizontal_data = self.volume[y, :, ::-1].T.flatten() # notice the ::-1 and T here are important
             horizontal_image = QImage(horizontal_data, self.x_dim, self.z_dim, self.x_dim, QImage.Format_Indexed8)
             horizontal_image.setColorTable(gray_color_table)
             return horizontal_image
 
         elif orientation == 'coronal':
             x = i
-            coronal_data = self.volume[:, x, ::-1].flatten()
+            coronal_data = self.volume[:, x, ::-1].flatten() # notice the ::-1 here is important
             coronal_image = QImage(coronal_data, self.z_dim, self.y_dim, self.z_dim, QImage.Format_Indexed8)
             coronal_image.setColorTable(gray_color_table)
             return coronal_image

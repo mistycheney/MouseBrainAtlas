@@ -17,3 +17,8 @@ Results are at `<stack>_annotation_structuresHanddrawn_<timestamp>.hdf`
 Also see [explanation of annotation file](FileOrganization.md)
 
 ## Method 2: Manual adjustment of pre-built atlas structures.
+
+
+# Check annotation content
+
+Use notebook `annotation/check_annotation_file_v3.ipynb`.

@@ -130,16 +130,16 @@ class CoordinatesConverter(object):
 
             # Define frame:wholebrainWithMargin
             intensity_volume_spec = dict(name=stack, resolution='10.0um', prep_id='wholebrainWithMargin', vol_type='intensity')
-            _, thumbnail_volume_origin_wrt_wholebrain_10um = DataManager.load_original_volume_v2(intensity_volume_spec, return_origin_instead_of_bbox=True)
+            thumbnail_volume, thumbnail_volume_origin_wrt_wholebrain_10um = DataManager.load_original_volume_v2(intensity_volume_spec, return_origin_instead_of_bbox=True)
             thumbnail_volume_origin_wrt_wholebrain_um = thumbnail_volume_origin_wrt_wholebrain_10um * 10.
 
-#             _, (thumbnail_volume_origin_wrt_wholebrain_dataResol_x, thumbnail_volume_origin_wrt_wholebrain_dataResol_y, _) = \
-#             DataManager.load_original_volume_v2(intensity_volume_spec, return_origin_instead_of_bbox=True)
-
-#             thumbnail_volume_origin_wrt_wholebrain_um = np.r_[thumbnail_volume_origin_wrt_wholebrain_dataResol_x * 10., thumbnail_volume_origin_wrt_wholebrain_dataResol_y * 10., 0.]
+            # thumbnail_volume, (thumbnail_volume_origin_wrt_wholebrain_dataResol_x, thumbnail_volume_origin_wrt_wholebrain_dataResol_y, _) = \
+            # DataManager.load_original_volume_v2(intensity_volume_spec, return_origin_instead_of_bbox=True)
+            # thumbnail_volume_origin_wrt_wholebrain_um = np.r_[thumbnail_volume_origin_wrt_wholebrain_dataResol_x * 10., thumbnail_volume_origin_wrt_wholebrain_dataResol_y * 10., 0.]
 
             self.derive_three_view_frames(base_frame_name='wholebrainWithMargin',
-                                   origin_wrt_wholebrain_um=thumbnail_volume_origin_wrt_wholebrain_um)
+                                   origin_wrt_wholebrain_um=thumbnail_volume_origin_wrt_wholebrain_um,
+                                         zdim_um=thumbnail_volume.shape[2] * 10.)
 
             # Define resolution:raw
             self.register_new_resolution('raw', convert_resolution_string_to_um(resolution='raw', stack=stack))

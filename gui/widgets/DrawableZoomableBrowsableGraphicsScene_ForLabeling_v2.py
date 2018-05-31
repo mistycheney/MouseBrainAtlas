@@ -1042,7 +1042,7 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
             elif name_s == 'All atlas structures':
                 label_indices_lookup = self.get_label_indices_lookup(only_use_confirmed_sides=False)
                 for s in set(label_indices_lookup.keys()) & set(all_known_structures_sided):
-                    self.structure_volume_updated.emit('handdrawn', s, True, True)
+                    self.structure_volume_updated.emit('handdrawn', s, False, True)
             else:
                 self.structure_volume_updated.emit('handdrawn', name_s, False, True)
 
@@ -1415,6 +1415,34 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
                 self.set_mode('idle')
                 return True
 
+            elif key == Qt.Key_H:
+
+                key_bindings_info_str ="""
+h: show this help message.
+s: switch between score map and image.
+x: toggle red channel
+y: toggle green channel
+
+z: toggle blue channel
+i: show information box for current active contour.
+t: shift a structure in 3D
+alt + t: globally shift all structures in 3D.
+r: rotate a structure in 3D. If rotation center is not specified using "j", rotate around its 3D centroid.
+alt + r: globally rotate all structures in 3D.
+j: place rotation center
+v: toggle vertices
+c: toggle contours
+l: toggle name texts
+m: toggle markers
+n: to put a new marker
+r: to remove a marker
+b: clear current marker label; and the next addition of marker will prompt for new label.
+ctrl + drag: move a contour in 2D.
+enter: if pressed during adding vertices of a new contour, close the contour.
+"""
+
+                QMessageBox.information(self.gview, "Key bindings", key_bindings_info_str)
+
             elif key == Qt.Key_S:
                 if self.showing_which == 'scoremap':
                     self.showing_which = 'histology'
@@ -1453,15 +1481,15 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
             elif key == Qt.Key_I:
                 self.show_information_box()
                 return True
-
-            elif key == Qt.Key_Q:
-                self.set_mode('shift3d')
-                self.active_polygon.setFlag(QGraphicsItem.ItemIsMovable, True)
-                return True
-
-            elif key == Qt.Key_W:
-                self.set_mode('rotate3d')
-                return True
+            #
+            # elif key == Qt.Key_Q:
+            #     self.set_mode('shift3d')
+            #     self.active_polygon.setFlag(QGraphicsItem.ItemIsMovable, True)
+            #     return True
+            #
+            # elif key == Qt.Key_W:
+            #     self.set_mode('rotate3d')
+            #     return True
 
             elif key == Qt.Key_T:
                 modifiers = QApplication.keyboardModifiers()
@@ -1541,13 +1569,13 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
                     self.active_polygon.setFlag(QGraphicsItem.ItemIsMovable, True)
                     self.set_mode('shift2d')
 
-            elif key == Qt.Key_Shift:
-                if not event.isAutoRepeat(): # Ignore events that are auto repeats of the original SHIFT keypress
-                    # if mode is rotate3d, do not change it, because at mouserelease, we want to be in rotate3d state to execute the 3d structure transform.
-                    if self.mode == 'rotate3d':
-                        self.set_mode('rotate3d')
-                    else:
-                        self.set_mode('rotate2d')
+            # elif key == Qt.Key_Shift:
+            #     if not event.isAutoRepeat(): # Ignore events that are auto repeats of the original SHIFT keypress
+            #         # if mode is rotate3d, do not change it, because at mouserelease, we want to be in rotate3d state to execute the 3d structure transform.
+            #         if self.mode == 'rotate3d':
+            #             self.set_mode('rotate3d')
+            #         else:
+            #             self.set_mode('rotate2d')
 
         elif event.type() == QEvent.KeyRelease:
             key = event.key()
@@ -1881,7 +1909,8 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
 
         if tf is None:
 
-            if self.mode == 'prob_rotate3d' or self.mode == 'rotate3d' or self.mode == 'global_rotate3d':
+            # if self.mode == 'prob_rotate3d' or self.mode == 'rotate3d' or self.mode == 'global_rotate3d':
+            if self.mode == 'prob_rotate3d' or self.mode == 'global_rotate3d':
 
                 if self.mode == 'global_rotate3d':
 
@@ -1909,7 +1938,8 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
                     center=rotation_center_wrt_wholebrain_volResol
                     )
 
-            elif self.mode == 'prob_shift3d' or self.mode == 'shift3d' or self.mode == 'global_shift3d':
+            # elif self.mode == 'prob_shift3d' or self.mode == 'shift3d' or self.mode == 'global_shift3d':
+            elif self.mode == 'prob_shift3d' or self.mode == 'global_shift3d':
 
                 shift = release_position_wrt_wholebrain_volResol - press_position_wrt_wholebrain_volResol
                 print release_position_wrt_wholebrain_volResol, press_position_wrt_wholebrain_volResol, shift

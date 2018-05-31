@@ -105,6 +105,7 @@ aligner.set_centroid(centroid_m='structure_centroid', centroid_f='centroid_m')
 
 ########################################
 
+t = time.time()
 _, _ = aligner.optimize(tf_type=aligner_parameters['transform_type'], 
                              max_iter_num=1000,
                              history_len=100, 
@@ -112,6 +113,7 @@ _, _ = aligner.optimize(tf_type=aligner_parameters['transform_type'],
                             terminate_thresh_rot=.01,
                              full_lr=np.array([1,1,1,.01,.01,.01]),
                             )
+sys.stderr.write("Optimize: %.2f seconds.\n" % (time.time() - t))
 
 # plot_alignment_results(traj=aligner.Ts, scores=aligner.scores, select_best='max_value')
 

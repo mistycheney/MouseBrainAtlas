@@ -1,3 +1,13 @@
+# Overall
+
+The time for processing one brain on one workstation with 8 GPU is as follows:
+
+- Preprocess (intra-stack registration): 0.7 hours
+- Preprocess (transform and crop raw images): 7.5 hours
+- Detection (compute features using 8 GPU): 1.5 hours
+- Detection (generate probability maps): 0.7 hours
+- Registration: 0.5 hours.
+
 # Preprocessing
 
 ## Convert raw data to TIFF

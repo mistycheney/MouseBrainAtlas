@@ -1,8 +1,11 @@
 # Building atlas
 
-## Reconstruct annotation volume from 2-D contours
+## Reconstruct annotation brain from 2-D contours
 
 `annotation/construct_annotation_volume_from_annotation_files_v5.ipynb`
+
+Output are at
+`CSHL_meshes/<brain_name>/<brain_name>_10.0um_annotationAsScoreVolume/<brain_name>_10.0um_annotationAsScoreVolume_<sided_or_surround_structure>.stl`
 
 ## Average annotation volumes to build atlas
 

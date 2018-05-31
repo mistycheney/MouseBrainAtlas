@@ -207,6 +207,14 @@ class CoordinatesConverter(object):
         # assert resol_name not in self.resolutions, 'Resolution name %s already exists.' % resol_name
         self.resolutions[resol_name] = {'um': resol_um}
 
+    def get_resolution_um(self, resol_name):
+        
+        if resol_name in self.resolutions:
+            res_um = self.resolutions[resol_name]['um']
+        else:
+            res_um = convert_resolution_string_to_um(resolution=resol_name, stack=self.stack)
+        return res_um
+        
     def convert_three_view_frames(self, p, base_frame_name, in_plane, out_plane, p_resol):
         """
         Convert among the three frames specified by the second method in this presentation
@@ -264,78 +272,94 @@ class CoordinatesConverter(object):
             print p, in_resolution, out_resolution
         assert p.ndim == 2
 
-        if in_resolution == 'image':
-            p_um = p * self.resolutions['image']['um']
-        elif in_resolution == 'image_image_section':
-            uv_um = p[..., :2] * self.resolutions['image']['um']
+        
+        import re
+        m = re.search('^(.*?)_(.*?)_(.*?)$', in_resolution)
+        if m is not None:
+            in_x_resol, in_y_resol, in_z_resol = m.groups()
+            assert in_x_resol == in_y_resol                    
+            uv_um = p[..., :2] * self.get_resolution_um(resol_name=in_x_resol)
             d_um = np.array([SECTION_THICKNESS * (sec - 0.5) for sec in p[..., 2]])
             p_um = np.column_stack([uv_um, d_um])
-        elif in_resolution == 'image_image_index':
-            uv_um = p[..., :2] * self.resolutions['image']['um']
-            i_um = np.array([SECTION_THICKNESS * (self.section_list[int(idx)] - 0.5) for idx in p[..., 2]])
-            p_um = np.column_stack([uv_um, i_um])
-        elif in_resolution == 'section':
-            uv_um = np.array([(np.nan, np.nan) for _ in p])
-            # d_um = np.array([SECTION_THICKNESS * (sec - 0.5) for sec in p])
-            d_um = SECTION_THICKNESS * (p[:, 0] - 0.5)
-            p_um = np.column_stack([np.atleast_2d(uv_um), np.atleast_1d(d_um)])
-        elif in_resolution == 'index':
-            uv_um = np.array([(np.nan, np.nan) for _ in p])
-            # i_um = np.array([SECTION_THICKNESS * (self.section_list[int(idx)] - 0.5) for idx in p])
-            i_um = SECTION_THICKNESS * (np.array(self.section_list)[p[:,0].astype(np.int)] - 0.5)
-            p_um = np.column_stack([uv_um, i_um])
         else:
-            if in_resolution in self.resolutions:
-                p_um = p * self.resolutions[in_resolution]['um']
-            else:
-                p_um = p * convert_resolution_string_to_um(resolution=in_resolution, stack=self.stack)
+            if in_resolution == 'image':
+                p_um = p * self.resolutions['image']['um']
 
-        if out_resolution == 'image':
-            p_outResol = p_um / self.resolutions['image']['um']
-        elif out_resolution == 'image_image_section':
-            uv_outResol = p_um[..., :2] / self.resolutions['image']['um']
+            elif in_resolution == 'image_image_index':
+                uv_um = p[..., :2] * self.get_resolution_um(resol_name='image')
+                i_um = np.array([SECTION_THICKNESS * (self.section_list[int(idx)] - 0.5) for idx in p[..., 2]])
+                p_um = np.column_stack([uv_um, i_um])
+            elif in_resolution == 'section':
+                uv_um = np.array([(np.nan, np.nan) for _ in p])
+                # d_um = np.array([SECTION_THICKNESS * (sec - 0.5) for sec in p])
+                d_um = SECTION_THICKNESS * (p[:, 0] - 0.5)
+                p_um = np.column_stack([np.atleast_2d(uv_um), np.atleast_1d(d_um)])
+            elif in_resolution == 'index':
+                uv_um = np.array([(np.nan, np.nan) for _ in p])
+                # i_um = np.array([SECTION_THICKNESS * (self.section_list[int(idx)] - 0.5) for idx in p])
+                i_um = SECTION_THICKNESS * (np.array(self.section_list)[p[:,0].astype(np.int)] - 0.5)
+                p_um = np.column_stack([uv_um, i_um])
+            else:
+                if in_resolution in self.resolutions:
+                    p_um = p * self.resolutions[in_resolution]['um']
+                else:
+                    p_um = p * convert_resolution_string_to_um(resolution=in_resolution, stack=self.stack)
+
+                    
+        m = re.search('^(.*?)_(.*?)_(.*?)$', out_resolution)
+        if m is not None:
+            out_x_resol, out_y_resol, out_z_resol = m.groups()
+            assert out_x_resol == out_y_resol                    
+            uv_outResol = p_um[..., :2] / self.get_resolution_um(resol_name=out_x_resol)
             sec_outResol = np.array([1 + int(np.floor(d_um / SECTION_THICKNESS)) for d_um in np.atleast_1d(p_um[..., 2])])
             p_outResol = np.column_stack([np.atleast_2d(uv_outResol), np.atleast_1d(sec_outResol)])
-        elif out_resolution == 'image_image_index':
-            uv_outResol = p_um[..., :2] / self.resolutions['image']['um']
-            if hasattr(self, 'section_list'):
-                i_outResol = []
-                for d_um in p_um[..., 2]:
-                    sec = 1 + int(np.floor(d_um / SECTION_THICKNESS))
-                    if sec in self.section_list:
-                        index = self.section_list.index(sec)
-                    else:
-                        index = np.nan
-                    i_outResol.append(index)
-                i_outResol = np.array(i_outResol)
-            else:
-                i_outResol = p_um[..., 2] / self.resolutions['image']['um']
-            p_outResol = np.column_stack([uv_outResol, i_outResol])
-        elif out_resolution == 'section':
-            uv_outResol = p_um[..., :2] / self.resolutions['image']['um']
-            sec_outResol = np.array([1 + int(np.floor(d_um / SECTION_THICKNESS)) for d_um in np.atleast_1d(p_um[..., 2])])
-            p_outResol = np.column_stack([np.atleast_2d(uv_outResol), np.atleast_1d(sec_outResol)])[..., 2][:, None]
-        elif out_resolution == 'index':
-            uv_outResol = np.array([(np.nan, np.nan) for _ in p_um])
-            # uv_outResol = p_um[..., :2] / self.resolutions['image']['um']
-            if hasattr(self, 'section_list'):
-                i_outResol = []
-                for d_um in p_um[..., 2]:
-                    sec = 1 + int(np.floor(d_um / SECTION_THICKNESS))
-                    if sec in self.section_list:
-                        index = self.section_list.index(sec)
-                    else:
-                        index = np.nan
-                    i_outResol.append(index)
-                i_outResol = np.array(i_outResol)
-            else:
-                i_outResol = p_um[..., 2] / self.resolutions['image']['um']
-            p_outResol = np.column_stack([uv_outResol, i_outResol])[..., 2][:, None]
         else:
-            if out_resolution in self.resolutions:
-                p_outResol = p_um / self.resolutions[out_resolution]['um']
+            if out_resolution == 'image':
+                p_outResol = p_um / self.resolutions['image']['um']
+            # elif out_resolution == 'image_image_section':
+            #     uv_outResol = p_um[..., :2] / self.resolutions['image']['um']
+            #     sec_outResol = np.array([1 + int(np.floor(d_um / SECTION_THICKNESS)) for d_um in np.atleast_1d(p_um[..., 2])])
+            #     p_outResol = np.column_stack([np.atleast_2d(uv_outResol), np.atleast_1d(sec_outResol)])
+            elif out_resolution == 'image_image_index':
+                uv_outResol = p_um[..., :2] / self.get_resolution_um(resol_name='image')
+                if hasattr(self, 'section_list'):
+                    i_outResol = []
+                    for d_um in p_um[..., 2]:
+                        sec = 1 + int(np.floor(d_um / SECTION_THICKNESS))
+                        if sec in self.section_list:
+                            index = self.section_list.index(sec)
+                        else:
+                            index = np.nan
+                        i_outResol.append(index)
+                    i_outResol = np.array(i_outResol)
+                else:
+                    i_outResol = p_um[..., 2] / self.resolutions['image']['um']
+                p_outResol = np.column_stack([uv_outResol, i_outResol])
+            elif out_resolution == 'section':
+                uv_outResol = p_um[..., :2] / self.resolutions['image']['um']
+                sec_outResol = np.array([1 + int(np.floor(d_um / SECTION_THICKNESS)) for d_um in np.atleast_1d(p_um[..., 2])])
+                p_outResol = np.column_stack([np.atleast_2d(uv_outResol), np.atleast_1d(sec_outResol)])[..., 2][:, None]
+            elif out_resolution == 'index':
+                uv_outResol = np.array([(np.nan, np.nan) for _ in p_um])
+                # uv_outResol = p_um[..., :2] / self.resolutions['image']['um']
+                if hasattr(self, 'section_list'):
+                    i_outResol = []
+                    for d_um in p_um[..., 2]:
+                        sec = 1 + int(np.floor(d_um / SECTION_THICKNESS))
+                        if sec in self.section_list:
+                            index = self.section_list.index(sec)
+                        else:
+                            index = np.nan
+                        i_outResol.append(index)
+                    i_outResol = np.array(i_outResol)
+                else:
+                    i_outResol = p_um[..., 2] / self.resolutions['image']['um']
+                p_outResol = np.column_stack([uv_outResol, i_outResol])[..., 2][:, None]
             else:
-                p_outResol = p_um / convert_resolution_string_to_um(resolution=out_resolution, stack=self.stack)
+                if out_resolution in self.resolutions:
+                    p_outResol = p_um / self.resolutions[out_resolution]['um']
+                else:
+                    p_outResol = p_um / convert_resolution_string_to_um(resolution=out_resolution, stack=self.stack)
 
         assert p_outResol.ndim == 2
 
@@ -444,15 +468,22 @@ class CoordinatesConverter(object):
         - down32
         - vol
         - image: gscene resolution, determined by data_feeder.resolution
+        - raw_raw_index: (u in raw resolution, v in raw resolution, i in terms of data_feeder index)
         - image_image_index: (u in image resolution, v in image resolution, i in terms of data_feeder index)
         - image_image_section: (u in image resolution, v in image resolution, i in terms of section index)
         """
 
         if in_wrt == 'original' and out_wrt == 'alignedPadded':
-
-            assert in_resolution == 'image_image_section' and out_resolution == 'image_image_section'
-            assert in_image_resolution is not None, "Must specify input image resolution."
-            assert out_image_resolution is not None, "Must specify output image resolution."
+            
+            in_x_resol, in_y_resol, in_z_resol = in_resolution.split('_')
+            assert in_x_resol == in_y_resol
+            assert in_z_resol == 'section'
+            in_image_resolution = in_x_resol
+            
+            out_x_resol, out_y_resol, out_z_resol = out_resolution.split('_')
+            assert out_x_resol == out_y_resol
+            assert out_z_resol == 'section'
+            out_image_resolution = out_x_resol
 
             uv_um = p[..., :2] * convert_resolution_string_to_um(stack=stack, resolution=in_image_resolution)
 
@@ -476,12 +507,21 @@ class CoordinatesConverter(object):
                 np.column_stack([uv_wrt_alignedPadded_outResol_curr_section,
                            sec * np.ones((len(uv_wrt_alignedPadded_outResol_curr_section),))])
 
+            return p_wrt_outdomain_outResol
+                
         elif in_wrt == 'alignedPadded' and out_wrt == 'original':
 
-            assert in_resolution == 'image_image_section' and out_resolution == 'image_image_section'
-            assert in_image_resolution is not None, "Must specify input image resolution."
-            assert out_image_resolution is not None, "Must specify output image resolution."
-
+            
+            in_x_resol, in_y_resol, in_z_resol = in_resolution.split('_')
+            assert in_x_resol == in_y_resol
+            assert in_z_resol == 'section'
+            in_image_resolution = in_x_resol
+            
+            out_x_resol, out_y_resol, out_z_resol = out_resolution.split('_')
+            assert out_x_resol == out_y_resol
+            assert out_z_resol == 'section'
+            out_image_resolution = out_x_resol
+            
             uv_um = p[..., :2] * convert_resolution_string_to_um(stack=stack, resolution=in_image_resolution)
 
             p_wrt_outdomain_outResol = np.zeros(p.shape)
@@ -826,7 +866,7 @@ class DataManager(object):
                                 warp_setting=None, trial_idx=None, suffix=None, timestamp=None,
                                return_timestamp=False,
                                annotation_rootdir=ANNOTATION_ROOTDIR,
-                               download_from_s3=True):
+                               download_s3=True):
         """
         Return the annotation file path.
 
@@ -845,7 +885,7 @@ class DataManager(object):
             # else:
             if timestamp is not None:
                 if timestamp == 'latest':
-                    if download_from_s3:
+                    if download_s3:
                         download_from_s3(os.path.join(annotation_rootdir, stack), is_dir=True, include_only="*%s*" % suffix, redownload=True)
                     timestamps = []
                     for fn in os.listdir(os.path.join(annotation_rootdir, stack)):
@@ -874,7 +914,8 @@ class DataManager(object):
             if suffix is not None:
                 if timestamp is not None:
                     if timestamp == 'latest':
-                        download_from_s3(os.path.join(annotation_rootdir, stack), is_dir=True, include_only="*%s*"%suffix, redownload=True)
+                        if download_s3:
+                            download_from_s3(os.path.join(annotation_rootdir, stack), is_dir=True, include_only="*%s*"%suffix, redownload=True)
                         timestamps = []
                         for fn in os.listdir(os.path.join(annotation_rootdir, stack)):
                             m = re.match('%(stack)s_annotation_%(suffix)s_(.*?).hdf' % {'stack':stack, 'suffix': suffix}, fn)
@@ -905,17 +946,17 @@ class DataManager(object):
                                 warp_setting=None, trial_idx=None, timestamp=None, suffix=None,
                           return_timestamp=False,
                           annotation_rootdir=ANNOTATION_ROOTDIR,
-                          download_from_s3=True):
+                          download_s3=True):
         if by_human:
             if return_timestamp:
                 fp, timestamp = DataManager.get_annotation_filepath(stack, by_human=True, suffix=suffix, timestamp=timestamp,
                                                     return_timestamp=True, annotation_rootdir=annotation_rootdir,
-                                                                   download_from_s3=download_from_s3)
+                                                                   download_s3=download_s3)
             else:
                 fp = DataManager.get_annotation_filepath(stack, by_human=True, suffix=suffix, timestamp=timestamp,
                                                     return_timestamp=False, annotation_rootdir=annotation_rootdir,
-                                                        download_from_s3=download_from_s3)
-            if download_from_s3:
+                                                        download_s3=download_s3)
+            if download_s3:
                 download_from_s3(fp)
             contour_df = read_hdf(fp)
             if return_timestamp:
@@ -933,7 +974,7 @@ class DataManager(object):
                                                     suffix=suffix, timestamp=timestamp,
                                                                    return_timestamp=True,
                                                                    annotation_rootdir=annotation_rootdir,
-                                                                   download_from_s3=download_from_s3)
+                                                                   download_s3=download_s3)
             else:
                 fp = DataManager.get_annotation_filepath(stack, by_human=False,
                                      stack_m=stack_m,
@@ -943,8 +984,9 @@ class DataManager(object):
                                     suffix=suffix, timestamp=timestamp,
                                                    return_timestamp=False,
                                                    annotation_rootdir=annotation_rootdir,
-                                                        download_from_s3=download_from_s3)
-            download_from_s3(fp)
+                                                        download_s3=download_s3)
+            if download_s3:
+                download_from_s3(fp)
             annotation_df = load_hdf_v2(fp)
 
             if return_timestamp:
@@ -2203,7 +2245,7 @@ class DataManager(object):
             else:
                 structures = all_known_structures
 
-        if isinstance(levels, float):
+        if isinstance(levels, float) or levels is None:
             meshes = {}
             for structure in structures:
                 try:
@@ -5032,6 +5074,10 @@ class DataManager(object):
 
     @staticmethod
     def load_thumbnail_mask_v3(stack, prep_id, section=None, fn=None):
+        """
+        Args:
+            prep_id (str or int)
+        """
 
         try:
             fp = DataManager.get_thumbnail_mask_filename_v3(stack=stack, section=section, fn=fn, prep_id=prep_id)

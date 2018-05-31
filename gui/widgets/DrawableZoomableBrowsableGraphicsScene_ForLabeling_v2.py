@@ -1417,16 +1417,17 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
 
                 key_bindings_info_str ="""
 h: show this help message.
+1/2: go backward/forward along the stack in the full resolution panel.
+3/4, 5/6, 7/8: go forward/backward in the coronal, horizontal, sagittal whole-brain overview panel, respectively.
 s: switch between score map and image.
 x: toggle red channel
 y: toggle green channel
-
 z: toggle blue channel
 i: show information box for current active contour.
 t: shift a structure in 3D
-alt + t: globally shift all structures in 3D.
+ALT + t: globally shift all structures in 3D.
 r: rotate a structure in 3D. If rotation center is not specified using "j", rotate around its 3D centroid.
-alt + r: globally rotate all structures in 3D.
+ALT + r: globally rotate all structures in 3D.
 j: place rotation center
 v: toggle vertices
 c: toggle contours
@@ -1435,7 +1436,7 @@ m: toggle markers
 n: to put a new marker
 r: to remove a marker
 b: clear current marker label; and the next addition of marker will prompt for new label.
-ctrl + drag: move a contour in 2D.
+CTRL + drag: move a contour in 2D.
 enter: if pressed during adding vertices of a new contour, close the contour.
 """
 

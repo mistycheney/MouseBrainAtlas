@@ -12,7 +12,7 @@ Output are at
 
 Notebook: `registration/align_annotated_brains_v7.ipynb`
 
-## Average annotation volumes to build atlas
+## Average aligned annotation brains to build atlas
 
 Notebook: `3d/build_atlas_from_aligned_annotated_brains_v6.ipynb`
 

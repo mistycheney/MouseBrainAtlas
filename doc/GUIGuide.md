@@ -21,4 +21,6 @@ Also see [explanation of annotation file](FileOrganization.md)
 
 # Check annotation content
 
-Use notebook `annotation/check_annotation_file_v3.ipynb`.
+Check annotation entries using `annotation/check_annotation_file_v3.ipynb`.
+
+Generate annotation contour overlaid images using `annotation/visualize_annotations_v5.ipynb`.

@@ -168,7 +168,7 @@ class CoordinatesConverter(object):
         """
         Generate three new coordinate frames, based on a given bounding box.
         Names of the new frames are <base_frame_name>_sagittal, <base_frame_name>_coronal and <base_frame_name>_horizontal.
-        
+
         Args:
             base_frame_name (str):
         """
@@ -825,7 +825,8 @@ class DataManager(object):
                                 prep_id_f=None,
                                 warp_setting=None, trial_idx=None, suffix=None, timestamp=None,
                                return_timestamp=False,
-                               annotation_rootdir=ANNOTATION_ROOTDIR):
+                               annotation_rootdir=ANNOTATION_ROOTDIR,
+                               download_from_s3=True):
         """
         Return the annotation file path.
 
@@ -844,7 +845,8 @@ class DataManager(object):
             # else:
             if timestamp is not None:
                 if timestamp == 'latest':
-                    download_from_s3(os.path.join(annotation_rootdir, stack), is_dir=True, include_only="*%s*" % suffix, redownload=True)
+                    if download_from_s3:
+                        download_from_s3(os.path.join(annotation_rootdir, stack), is_dir=True, include_only="*%s*" % suffix, redownload=True)
                     timestamps = []
                     for fn in os.listdir(os.path.join(annotation_rootdir, stack)):
                         m = re.match('%(stack)s_annotation_%(suffix)s_([0-9]*?).hdf' % {'stack':stack, 'suffix': suffix}, fn)
@@ -902,15 +904,19 @@ class DataManager(object):
                                 detector_id_f=None,
                                 warp_setting=None, trial_idx=None, timestamp=None, suffix=None,
                           return_timestamp=False,
-                          annotation_rootdir=ANNOTATION_ROOTDIR):
+                          annotation_rootdir=ANNOTATION_ROOTDIR,
+                          download_from_s3=True):
         if by_human:
             if return_timestamp:
                 fp, timestamp = DataManager.get_annotation_filepath(stack, by_human=True, suffix=suffix, timestamp=timestamp,
-                                                    return_timestamp=True, annotation_rootdir=annotation_rootdir)
+                                                    return_timestamp=True, annotation_rootdir=annotation_rootdir,
+                                                                   download_from_s3=download_from_s3)
             else:
                 fp = DataManager.get_annotation_filepath(stack, by_human=True, suffix=suffix, timestamp=timestamp,
-                                                    return_timestamp=False, annotation_rootdir=annotation_rootdir)
-            download_from_s3(fp)
+                                                    return_timestamp=False, annotation_rootdir=annotation_rootdir,
+                                                        download_from_s3=download_from_s3)
+            if download_from_s3:
+                download_from_s3(fp)
             contour_df = read_hdf(fp)
             if return_timestamp:
                 return contour_df, timestamp
@@ -926,7 +932,8 @@ class DataManager(object):
                                                       warp_setting=warp_setting, trial_idx=trial_idx,
                                                     suffix=suffix, timestamp=timestamp,
                                                                    return_timestamp=True,
-                                                                   annotation_rootdir=annotation_rootdir)
+                                                                   annotation_rootdir=annotation_rootdir,
+                                                                   download_from_s3=download_from_s3)
             else:
                 fp = DataManager.get_annotation_filepath(stack, by_human=False,
                                      stack_m=stack_m,
@@ -935,7 +942,8 @@ class DataManager(object):
                                       warp_setting=warp_setting, trial_idx=trial_idx,
                                     suffix=suffix, timestamp=timestamp,
                                                    return_timestamp=False,
-                                                   annotation_rootdir=annotation_rootdir)
+                                                   annotation_rootdir=annotation_rootdir,
+                                                        download_from_s3=download_from_s3)
             download_from_s3(fp)
             annotation_df = load_hdf_v2(fp)
 
@@ -1027,7 +1035,7 @@ class DataManager(object):
         anchor_fn = DataManager.load_data(fp, filetype='anchor')
         return anchor_fn
 
-    
+
     @staticmethod
     def load_section_limits_v2(stack, anchor_fn=None, prep_id=2):
         """
@@ -1035,7 +1043,7 @@ class DataManager(object):
 
         d = load_data(DataManager.get_section_limits_filename_v2(stack=stack, anchor_fn=anchor_fn, prep_id=prep_id))
         return np.r_[d['left_section_limit'], d['right_section_limit']]
-    
+
     @staticmethod
     def get_section_limits_filename_v2(stack, anchor_fn=None, prep_id=2):
         """
@@ -1053,7 +1061,7 @@ class DataManager(object):
 
         fp = os.path.join(THUMBNAIL_DATA_DIR, stack, stack + '_alignedTo_' + anchor_fn + '_prep' + str(prep_id) + '_sectionLimits.json')
         return fp
-    
+
     @staticmethod
     def get_cropbox_filename_v2(stack, anchor_fn=None, prep_id=2):
         """
@@ -1163,12 +1171,12 @@ class DataManager(object):
 
     @staticmethod
     def load_cropbox_v2_relative(stack, prep_id, wrt_prep_id, out_resolution):
-            
+
         alignedBrainstemCrop_xmin_down32, alignedBrainstemCrop_xmax_down32, \
         alignedBrainstemCrop_ymin_down32, alignedBrainstemCrop_ymax_down32 = DataManager.load_cropbox_v2(stack=stack, prep_id=prep_id, only_2d=True)
 
         alignedWithMargin_xmin_down32, alignedWithMargin_xmax_down32,\
-        alignedWithMargin_ymin_down32, alignedWithMargin_ymax_down32 = DataManager.load_cropbox_v2(stack=stack, anchor_fn=None, 
+        alignedWithMargin_ymin_down32, alignedWithMargin_ymax_down32 = DataManager.load_cropbox_v2(stack=stack, anchor_fn=None,
                                                                 prep_id=wrt_prep_id,
                                                                return_dict=False, only_2d=True)
 
@@ -1176,15 +1184,15 @@ class DataManager(object):
         alignedBrainstemCrop_xmax_wrt_alignedWithMargin_down32 = alignedBrainstemCrop_xmax_down32 - alignedWithMargin_xmin_down32
         alignedBrainstemCrop_ymin_wrt_alignedWithMargin_down32 = alignedBrainstemCrop_ymin_down32 - alignedWithMargin_ymin_down32
         alignedBrainstemCrop_ymax_wrt_alignedWithMargin_down32 = alignedBrainstemCrop_ymax_down32 - alignedWithMargin_ymin_down32
-        
-        scale_factor = convert_resolution_string_to_um('down32', stack) / convert_resolution_string_to_um(out_resolution, stack) 
-        
-        return np.round([alignedBrainstemCrop_xmin_wrt_alignedWithMargin_down32 * scale_factor, 
-                         alignedBrainstemCrop_xmax_wrt_alignedWithMargin_down32 * scale_factor, 
-                         alignedBrainstemCrop_ymin_wrt_alignedWithMargin_down32 * scale_factor, 
+
+        scale_factor = convert_resolution_string_to_um('down32', stack) / convert_resolution_string_to_um(out_resolution, stack)
+
+        return np.round([alignedBrainstemCrop_xmin_wrt_alignedWithMargin_down32 * scale_factor,
+                         alignedBrainstemCrop_xmax_wrt_alignedWithMargin_down32 * scale_factor,
+                         alignedBrainstemCrop_ymin_wrt_alignedWithMargin_down32 * scale_factor,
                          alignedBrainstemCrop_ymax_wrt_alignedWithMargin_down32 * scale_factor]).astype(np.int)
-    
-    
+
+
     @staticmethod
     def load_cropbox_v2(stack, anchor_fn=None, convert_section_to_z=False, prep_id=2,
                         return_origin_instead_of_bbox=False,
@@ -2427,7 +2435,7 @@ class DataManager(object):
             alignment_spec (dict): specify stack_m, stack_f, warp_setting.
             resolution (str): resolution of the output volume.
             legacy (bool): if legacy, resolution can only be down32.
-            
+
         Returns:
             (2-tuple): (volume, bounding box wrt "wholebrain" domain of the fixed stack)
 
@@ -2439,7 +2447,7 @@ class DataManager(object):
             stack_f = alignment_spec['stack_f']['name']
             detector_id_f = alignment_spec['stack_f']['detector_id']
             warp = alignment_spec['warp_setting']
-            
+
             origin_outResol = DataManager.get_domain_origin(stack=stack_f, domain='brainstem', resolution=resolution).astype(np.int)
 
             vol_down32 = DataManager.load_transformed_volume(stack_m=stack_m, stack_f=stack_f,
@@ -2448,17 +2456,17 @@ class DataManager(object):
                                                       prep_id_m=None, prep_id_f=2,
                                                         vol_type_m='score', vol_type_f='score', downscale=32,
                                                         structure=structure)
-            
-            vol_outResol = rescale_by_resampling(vol_down32, 
+
+            vol_outResol = rescale_by_resampling(vol_down32,
                                   scaling=convert_resolution_string_to_um(resolution='down32', stack=stack_f)/convert_resolution_string_to_um(resolution=resolution, stack=stack_f))
 
-            bbox_outResol = np.array((origin_outResol[0], 
-                             origin_outResol[0]+vol_outResol.shape[1], 
-                             origin_outResol[1], 
-                             origin_outResol[1]+vol_outResol.shape[0], 
-                             origin_outResol[2], 
+            bbox_outResol = np.array((origin_outResol[0],
+                             origin_outResol[0]+vol_outResol.shape[1],
+                             origin_outResol[1],
+                             origin_outResol[1]+vol_outResol.shape[0],
+                             origin_outResol[2],
                              origin_outResol[2]+vol_outResol.shape[2])).astype(np.int)
-            
+
             origin_outResol = bbox_outResol[[0,2,4]].astype(np.int)
             if return_origin_instead_of_bbox:
                 return (vol_outResol, origin_outResol)
@@ -2863,7 +2871,7 @@ class DataManager(object):
                                         vol_type_f='score',
                                         structure=None,
                                         trial_idx=None):
-    
+
         basename = DataManager.get_warped_volume_basename(**locals())
         if structure is not None:
             fn = basename + '_%s' % structure
@@ -4446,7 +4454,7 @@ class DataManager(object):
         Returns:
             Absolute path of the image directory.
         """
-        
+
         if prep_id is not None and isinstance(prep_id, str):
             prep_id = prep_str_to_id_2d[prep_id]
 
@@ -4510,7 +4518,7 @@ class DataManager(object):
                                                       thumbnail_data_dir=thumbnail_data_dir)
 
         sys.stderr.write("Trying to load %s\n" % img_fp)
-        
+
         if not os.path.exists(img_fp):
             sys.stderr.write('File not on local disk. Download from S3.\n')
             if resol == 'lossless' or resol == 'raw' or resol == 'down8':
@@ -4530,7 +4538,7 @@ class DataManager(object):
                     img = imread(img_fp, -1)
                     # if img is None:
                     #     raise Exception("Image loading returns None: %s" % img_fp)
-                        
+
                 if img is not None:
                     image_cache[args_tuple] = img
                     sys.stderr.write("Image %s is now cached.\n" % os.path.basename(img_fp))
@@ -4543,21 +4551,21 @@ class DataManager(object):
                     img = imread(img_fp, -1)
                 except:
                     sys.stderr.write("skimage.imread fails to load.\n")
-                    img = None                    
-                    
+                    img = None
+
         if img is None:
             sys.stderr.write("Image fails to load. Trying to convert from other resol/versions.\n")
-            
+
             if resol != 'raw':
                 try:
                     sys.stderr.write("Resolution %s is not available. Instead, try loading raw and then downscale...\n" % resol)
                     img = DataManager.load_image_v2(stack=stack, prep_id=prep_id, resol='raw', version=version, section=section, fn=fn, data_dir=data_dir, ext=ext, thumbnail_data_dir=thumbnail_data_dir)
-                    
+
                     downscale_factor = convert_resolution_string_to_um(resolution='raw', stack=stack)/convert_resolution_string_to_um(resolution=resol, stack=stack)
                     img = rescale_by_resampling(img, downscale_factor)
                 except:
                     sys.stderr.write('Cannot load raw either.')
-            
+
                     if version == 'blue':
                         img = DataManager.load_image_v2(stack=stack, prep_id=prep_id, resol=resol, version=None, section=section, fn=fn, data_dir=data_dir, ext=ext, thumbnail_data_dir=thumbnail_data_dir)[..., 2]
                     elif version == 'grayJpeg':
@@ -4592,7 +4600,7 @@ class DataManager(object):
                                 xmin,xmax,ymin,ymax = DataManager.load_cropbox_v2_relative(stack=stack, prep_id=prep_id, wrt_prep_id=5, out_resolution='down32')
                                 mask_prep2 = mask_prep5[ymin:ymax+1, xmin:xmax+1].copy()
                                 return mask_prep2.astype(np.bool)
-                            except:                            
+                            except:
                                 # get prep 2 masks directly from prep 1 masks.
                                 sys.stderr.write('Cannot load mask %s, section=%s, fn=%s, prep=%s\n' % (stack, section, fn, prep_id))
                                 sys.stderr.write('Try finding prep1 masks.\n')
@@ -4658,9 +4666,9 @@ class DataManager(object):
         if resol == 'lossless':
             if stack == 'CHATM2' or stack == 'CHATM3':
                 resol = 'raw'
-        # elif resol == 'raw':
-        #     if stack not in ['CHATM2', 'CHATM3']:
-        #         resol = 'lossless'
+        elif resol == 'raw':
+            if stack not in ['CHATM2', 'CHATM3']:
+                resol = 'lossless'
 
         if section is not None:
             fn = metadata_cache['sections_to_filenames'][stack][section]
@@ -5032,11 +5040,11 @@ class DataManager(object):
             return mask
         except:
             sys.stderr.write('Cannot load mask %s, section=%s, fn=%s, prep=%s\n' % (stack, section, fn, prep_id))
-            
+
             if isinstance(prep_id, str):
                 prep_id = prep_str_to_id_2d[prep_id]
 
-            if prep_id == 2:        
+            if prep_id == 2:
                 # get prep 2 masks directly from prep 5 masks.
                 try:
                     sys.stderr.write('Try finding prep5 masks.\n')
@@ -5047,7 +5055,7 @@ class DataManager(object):
                     xmin,xmax,ymin,ymax = DataManager.load_cropbox_v2_relative(stack=stack, prep_id=prep_id, wrt_prep_id=5, out_resolution='down32')
                     mask_prep2 = mask_prep5[ymin:ymax+1, xmin:xmax+1].copy()
                     return mask_prep2
-                except:                            
+                except:
                     # get prep 2 masks directly from prep 1 masks.
                     sys.stderr.write('Cannot load mask %s, section=%s, fn=%s, prep=%s\n' % (stack, section, fn, prep_id))
                     sys.stderr.write('Try finding prep1 masks.\n')
@@ -5058,7 +5066,7 @@ class DataManager(object):
                     xmin,xmax,ymin,ymax = DataManager.load_cropbox_v2(stack=stack, prep_id=prep_id, return_dict=False, only_2d=True)
                     mask_prep2 = mask_prep1[ymin:ymax+1, xmin:xmax+1].copy()
                     return mask_prep2
-        
+
 
     # @staticmethod
     # def load_thumbnail_mask_v3(stack, prep_id, section=None, fn=None):

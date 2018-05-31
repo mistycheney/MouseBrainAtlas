@@ -101,7 +101,11 @@ class ReadImagesThread(QThread):
                 continue
 
             t = time.time()
-            qimage = load_qimage(stack=self.stack, sec=sec, prep_id=self.prep_id, resolution=self.resolution, img_version=self.img_version)
+            try:
+                qimage = load_qimage(stack=self.stack, sec=sec, prep_id=self.prep_id, resolution=self.resolution, img_version=self.img_version)
+            except:
+                print self.validity_mask[sec], sec, metadata_cache['sections_to_filenames'][self.stack][sec]
+                raise
             sys.stderr.write('Load qimage: %.2f seconds.\n' % (time.time() - t))
             self.emit(SIGNAL('image_loaded(QImage, int)'), qimage, sec)
 

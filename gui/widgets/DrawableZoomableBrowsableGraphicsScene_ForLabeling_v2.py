@@ -424,9 +424,8 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
         mid_sec = int(round((first_sec + last_sec) / 2))
 
         label_indices_lookup = self.get_label_indices_lookup()
-        # label_sections_lookup = {l: [self.data_feeder.sections[idx] for idx in indices] for l, indices in label_indices_lookup.iteritems()}
 
-        index_ranges_all_structures = get_landmark_range_limits_v3(stack=self.data_feeder.stack, label_section_lookup=label_indices_lookup,
+        index_ranges_all_structures = get_landmark_range_limits_v3(stack=self.data_feeder.stack, label_indices_lookup=label_indices_lookup,
         mid_index=self.data_feeder.sections.index(mid_sec))
         print 'index_ranges_all_structures', sorted(index_ranges_all_structures.items())
 
@@ -605,12 +604,12 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
                 # type = confirmed or intersected
                 if 'type' in contour:
                     if contour['type'] is not None:
-                        if contour['name'] == 'SC' or contour['name'] == 'IC':
-                            contour_type = 'intersected'
-                        else:
-                            contour_type = contour['type']
+                        # if contour['name'] == 'IC':
+                        #     contour_type = 'intersected'
+                        # else:
+                        contour_type = contour['type']
                     else:
-                        contour_type = 'confirmed'
+                        contour_type = 'intersected'
                 else:
                     # contour_type = None
                     contour_type = 'confirmed'
@@ -740,14 +739,13 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
 
         return contour_entries
 
-    # def get_label_section_lookup(self):
     def get_label_indices_lookup(self, only_use_confirmed_sides=True):
         """
         Returns:
             dict: {label: index list}. Labels are sided if the sides are confirmed. Otherwise labels are unsided. Values are list of image indices, NOT sections.
         """
 
-        label_section_lookup = defaultdict(list)
+        label_indices_lookup = defaultdict(list)
 
         for section_index, polygons in self.drawings.iteritems():
             for p in polygons:
@@ -766,12 +764,12 @@ class DrawableZoomableBrowsableGraphicsScene_ForLabeling(DrawableZoomableBrowsab
                     else:
                         label = p.properties['label']
                 else:
-                    raise Exception('Side property must be None, L or R.')
+                    raise Exception('Side property must be None, S, L or R.')
 
-                label_section_lookup[label].append(section_index)
+                label_indices_lookup[label].append(section_index)
 
-        label_section_lookup.default_factory = None
-        return label_section_lookup
+        label_indices_lookup.default_factory = None
+        return label_indices_lookup
 
     @pyqtSlot()
     def polygon_completed_callback(self):

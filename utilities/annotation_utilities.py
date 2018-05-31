@@ -14,9 +14,9 @@ from data_manager import *
 @deprecated
 def get_structure_contours_from_structure_volumes(volumes, stack, sections, resolution, level=.5, sample_every=1):
     """
-    
+
     TODO: replace all use of this function by `get_structure_contours_from_structure_volumes_v4`.
-    
+
     Re-section atlas volumes and obtain structure contours on each section.
     Resolution of output contours are in volume resolution.
 
@@ -74,7 +74,7 @@ def get_structure_contours_from_aligned_atlas(volumes, volume_origin, stack, sec
                                               sample_every=1, first_sec=1):
     """
     TODO: replace all use of this function by `get_structure_contours_from_structure_volumes_v4`.
-    
+
     Re-section atlas volumes and obtain structure contours on each section.
 
     Args:
@@ -151,7 +151,7 @@ def get_structure_contours_from_aligned_atlas(volumes, volume_origin, stack, sec
 def convert_structure_annotation_to_volume_origin_dict_v2(structures_df, out_resolution=None, stack=None):
     """
     Convert dataframe read from 3D structure annotation files to a list of (volume, origin) tuples.
-    
+
     Returns:
         volume_origin_dict:
         out_resolution: resolution of returned volumes.
@@ -413,24 +413,29 @@ def assign_sideness(label_polygons, landmark_range_limits=None):
 #
 #     return annotation_on_sections
 
-def get_landmark_range_limits_v3(stack=None, label_section_lookup=None, filtered_labels=None, mid_index=None):
+def get_landmark_range_limits_v3(stack=None, label_indices_lookup=None, filtered_labels=None, mid_index=None):
     """
     Identify the index range spanned by each structure.
 
     Args:
-        label_section_lookup (dict): {label: index list}.
+        label_indices_lookup (dict): {label: index list}.
     """
 
-    print 'label_section_lookup:', label_section_lookup
+    print 'label_indices_lookup:'
+
+    print
+    for label in sorted(label_indices_lookup.keys()):
+        print label, label_indices_lookup[label]
+    print
 
     print 'Estimated mid-sagittal image index = %d' % (mid_index)
 
     landmark_limits = {}
 
-    structures_sided = set(label_section_lookup.keys())
+    structures_sided = set(label_indices_lookup.keys())
 
     if filtered_labels is not None:
-        structures_sided = set(label_section_lookup.keys()) & set(filtered_labels)
+        structures_sided = set(label_indices_lookup.keys()) & set(filtered_labels)
 
     structures_unsided = set(map(convert_to_unsided_label, structures_sided))
 
@@ -438,7 +443,7 @@ def get_landmark_range_limits_v3(stack=None, label_section_lookup=None, filtered
 
         if name_u in singular_structures:
             # single
-            sections = sorted(label_section_lookup[name_u]) if name_u in label_section_lookup else []
+            sections = sorted(label_indices_lookup[name_u]) if name_u in label_indices_lookup else []
             assert len(sections) > 0
 
             landmark_limits[name_u] = (np.min(sections), np.max(sections))
@@ -448,9 +453,9 @@ def get_landmark_range_limits_v3(stack=None, label_section_lookup=None, filtered
             lname = convert_to_left_name(name_u)
             rname = convert_to_right_name(name_u)
 
-            confirmed_left_sections = sorted(label_section_lookup[lname]) if lname in label_section_lookup else []
-            confirmed_right_sections = sorted(label_section_lookup[rname]) if rname in label_section_lookup else []
-            unconfirmed_side_sections = sorted(label_section_lookup[name_u]) if name_u in label_section_lookup else []
+            confirmed_left_sections = sorted(label_indices_lookup[lname]) if lname in label_indices_lookup else []
+            confirmed_right_sections = sorted(label_indices_lookup[rname]) if rname in label_indices_lookup else []
+            unconfirmed_side_sections = sorted(label_indices_lookup[name_u]) if name_u in label_indices_lookup else []
 
             sections = sorted(confirmed_left_sections + confirmed_right_sections + unconfirmed_side_sections)
             assert len(sections) > 0

@@ -1,3 +1,13 @@
+# Overall
+
+The time for processing one brain on one workstation with 8 GPU is as follows:
+
+- Preprocess (intra-stack registration): 0.7 hours
+- Preprocess (transform and crop raw images): 7.5 hours
+- Detection (compute features using 8 GPU): 1.5 hours
+- Detection (generate probability maps): 0.7 hours
+- Registration: 0.5 hours.
+
 # Preprocessing
 
 ## Convert raw data to TIFF
@@ -6,7 +16,7 @@ raw -> raw_Ntb:
 
 ### For thionin data
 * raw -> thumbnail
-* **Compute tranforms using thumbnail**
+* **Compute tranforms using thumbnail**: 40min/stack
 * thumbnail -> prep1_thumbnail
 * **Supply prep1_thumbnail_mask**
 * prep1_thumbnail_mask -> thumbnail_mask
@@ -111,6 +121,8 @@ Overall, if features are pre-computed and background images already exist, 8 s/s
 negligible
 
 ## Local registration
-
+- Optimize: ~30-150s/structure
+- Transform moving brain: 0.1s/structure
+- Save transformed moving brain: 
 
 

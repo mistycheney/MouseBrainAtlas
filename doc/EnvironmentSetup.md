@@ -38,3 +38,6 @@ Then on your local machine,
 - `screen -r <session_id>` to resume the screen session.
 - `fg` to bring the Jupyter notebook process to foreground.
 - `bg` to put a process into background.
+
+If tab and arrow keys are not working, you are using sh rather than bash. Do the following:
+https://askubuntu.com/questions/163802/backspace-tab-del-and-arrow-keys-not-working-in-terminal-using-ssh

@@ -2,7 +2,7 @@
 
 There are two ways to manipulate annotation on images.
 
-## Method 1: 3-D reconstruction from manually drawn contours.
+## Method 1: Manually draw contours.
 
 Create or edit contours. For complete instructions on how to interact with GUI, see [User Interface README](../gui/README.md).
 

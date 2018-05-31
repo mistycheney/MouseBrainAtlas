@@ -1,3 +1,5 @@
 warp_id,upstream_warp_id,transform_type,grad_computation_sample_number,grid_search_sample_number,std_tx_um,std_ty_um,std_tz_um,std_theta_xy_degree,surround_weight,regularization_weight,terminate_thresh_trans,terminate_thresh_rot,history_len,max_iter_num,learning_rate_trans,learning_rate_rot,comment
 7,None,rigid,100000,1000,50,50,50,10,inverse,,0.01,0.01,100,5000,1,0.01,"structure registration with surround, no initial registration"
 20,None,affine,10000,,2000,2000,2000,10,inverse,,,,200,,,,global reg no surr no grid search
+17,20,rigid,,10000,,,,,,inverse,0,local reg with surr no grid search,1000,
+

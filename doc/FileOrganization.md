@@ -2,18 +2,18 @@ This page describes the location of the raw input and intermediate data.
 
 The storage locations of different types of data are specified by the following global variables in `global_setting.py`:
 
-- `REPO_DIR`: default to `/home/yuncong/Brain/`
-- `DATA_DIR`: default to `CSHL_data_processed`
-- `VOLUME_ROOTDIR`: 
-- `MESH_ROOTDIR`:
-- `REGISTRATION_PARAMETERS_ROOTDIR`:
-- `PATCH_FEATURES_ROOTDIR`:
-- `ANNOTATION_ROOTDIR`:
-- `CLF_ROOTDIR`:
-- `SCOREMAP_ROOTDIR`:
-- `SCOREMAP_VIZ_ROOTDIR`:
-- `REGISTRATION_VIZ_ROOTDIR`
-- `MXNET_MODEL_ROOTDIR`
+- `REPO_DIR`: code repository
+- `DATA_DIR`: processed images
+- `VOLUME_ROOTDIR`: volumes
+- `MESH_ROOTDIR`: 3-D meshes
+- `REGISTRATION_PARAMETERS_ROOTDIR`: registration parameters
+- `PATCH_FEATURES_ROOTDIR`: patch features
+- `ANNOTATION_ROOTDIR`: annotation files
+- `CLF_ROOTDIR`: classifiers
+- `SCOREMAP_ROOTDIR`: score maps
+- `SCOREMAP_VIZ_ROOTDIR`: JPG of score maps
+- `REGISTRATION_VIZ_ROOTDIR`: registration visualization
+- `MXNET_MODEL_ROOTDIR`: mxnet models
 
 All data are stored relative to these root directories. The exact path for specific data is provided in the description of the system process that generates the data.
 

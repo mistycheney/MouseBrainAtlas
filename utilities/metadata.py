@@ -8,6 +8,7 @@ import subprocess
 ########### Data Directories #############
 
 hostname = subprocess.check_output("hostname", shell=True).strip()
+username = subprocess.check_output("whoami", shell=True).strip()
 
 # if hostname.endswith('sdsc.edu'):
 #     print 'Setting environment for Gordon'
@@ -93,7 +94,7 @@ if hostname == 'yuncong-MacbookPro':
     ELASTIX_BIN = 'elastix'
 
 
-elif hostname == 'yuncong-Precision-WorkStation-T7500':
+elif hostname == 'yuncong-Precision-WorkStation-T7500' and username == 'yuncong':
     print 'Setting environment for Precision WorkStation'
     HOST_ID = 'workstation'
 
@@ -127,6 +128,67 @@ elif hostname == 'yuncong-Precision-WorkStation-T7500':
     THUMBNAIL_DATA_DIR = os.path.join(THUMBNAIL_DATA_ROOTDIR, 'CSHL_data_processed')
     VOLUME_ROOTDIR = os.path.join(ROOT_DIR, 'CSHL_volumes')
     MESH_ROOTDIR =  '/home/yuncong/CSHL_meshes'
+
+    # annotation_rootdir =  os.path.join(ROOT_DIR, 'CSHL_data_labelings_losslessAlignCropped')
+#     annotation_midbrainIncluded_v2_rootdir = '/home/yuncong/CSHL_labelings_v3/'
+    PATCH_FEATURES_ROOTDIR = os.path.join(DATA_ROOTDIR, 'CSHL_patch_features')
+    PATCH_LOCATIONS_ROOTDIR = os.path.join(DATA_ROOTDIR, 'CSHL_patch_locations')
+
+    SCOREMAP_ROOTDIR = os.path.join(ROOT_DIR, 'CSHL_scoremaps')
+    SCOREMAP_VIZ_ROOTDIR = os.path.join(ROOT_DIR, 'CSHL_scoremap_viz')
+    SPARSE_SCORES_ROOTDIR = os.path.join(ROOT_DIR, 'CSHL_patch_scores')
+
+    ANNOTATION_ROOTDIR =  os.path.join(ROOT_DIR, 'CSHL_labelings_v3')
+    ANNOTATION_THALAMUS_ROOTDIR = os.path.join(ROOT_DIR, 'CSHL_labelings_thalamus')
+    CLF_ROOTDIR =  os.path.join(DATA_ROOTDIR, 'CSHL_classifiers')
+
+    REGISTRATION_PARAMETERS_ROOTDIR = os.path.join(ROOT_DIR, 'CSHL_registration_parameters')
+    REGISTRATION_VIZ_ROOTDIR = os.path.join(ROOT_DIR, 'CSHL_registration_visualization')
+
+    KDU_EXPAND_BIN = '/home/yuncong/KDU7A2_Demo_Apps_for_Centos7-x86-64_170827/kdu_expand'
+
+    CLASSIFIER_SETTINGS_CSV = os.path.join(REPO_DIR, 'learning', 'classifier_settings.csv')
+    DATASET_SETTINGS_CSV = os.path.join(REPO_DIR, 'learning', 'dataset_settings.csv')
+    REGISTRATION_SETTINGS_CSV = os.path.join(REPO_DIR, 'registration', 'registration_settings.csv')
+    PREPROCESS_SETTINGS_CSV = os.path.join(REPO_DIR, 'preprocess', 'preprocess_settings.csv')
+    DETECTOR_SETTINGS_CSV = os.path.join(REPO_DIR, 'learning', 'detector_settings.csv')
+
+    MXNET_MODEL_ROOTDIR = os.path.join(ROOT_DIR, 'mxnet_models')
+
+    ELASTIX_BIN = 'elastix'
+
+elif hostname == 'yuncong-Precision-WorkStation-T7500' and username == 'alexn':
+    print 'Setting environment for Precision WorkStation for Alex Newberry'
+    HOST_ID = 'workstation'
+
+    if 'ROOT_DIR' in os.environ:
+        ROOT_DIR = os.environ['ROOT_DIR']
+    else:
+        ROOT_DIR = '/home/alexn/'
+
+    if 'DATA_ROOTDIR' in os.environ:
+        DATA_ROOTDIR = os.environ['DATA_ROOTDIR']
+    else:
+        DATA_ROOTDIR = '/home/alexn/data'
+
+    if 'THUMBNAIL_DATA_ROOTDIR' in os.environ:
+        THUMBNAIL_DATA_ROOTDIR = os.environ['THUMBNAIL_DATA_ROOTDIR']
+    else:
+        THUMBNAIL_DATA_ROOTDIR = '/home/alexn/data'
+
+    RAW_DATA_DIR = os.path.join(DATA_ROOTDIR, 'CSHL_data')
+
+    ON_AWS = False
+    # S3_DATA_BUCKET = 'mousebrainatlas-data'
+    # S3_RAWDATA_BUCKET = 'mousebrainatlas-rawdata'
+
+    REPO_DIR = os.environ['REPO_DIR']
+
+    DATA_DIR = os.path.join(DATA_ROOTDIR, 'CSHL_data_processed')
+
+    THUMBNAIL_DATA_DIR = os.path.join(THUMBNAIL_DATA_ROOTDIR, 'CSHL_data_processed')
+    VOLUME_ROOTDIR = os.path.join(ROOT_DIR, 'CSHL_volumes')
+    MESH_ROOTDIR =  '/home/alexn/CSHL_meshes'
 
     # annotation_rootdir =  os.path.join(ROOT_DIR, 'CSHL_data_labelings_losslessAlignCropped')
 #     annotation_midbrainIncluded_v2_rootdir = '/home/yuncong/CSHL_labelings_v3/'
@@ -258,9 +320,9 @@ def convert_resolution_string_to_voxel_size(resolution, stack=None):
     elif resolution == 'lossless' or resolution == 'down1' or resolution == 'raw':
         assert stack is not None
         return planar_resolution[stack]
-    elif resolution == 'down8':
+    elif resolution.startswith('down'):
         assert stack is not None
-        return planar_resolution[stack] * 8.
+        return planar_resolution[stack] * int(resolution[4:])
     elif resolution == 'um':
         return 1.
     elif resolution.endswith('um'):
@@ -425,6 +487,11 @@ all_known_structures_sided_including_surround_200um = sorted(all_known_structure
 all_known_structures_unsided_including_surround_200um = all_known_structures + [convert_to_surround_name(u, margin='200um') for u in all_known_structures]
 
 all_structures_with_classifiers = sorted([l for l in all_known_structures if l not in {'outerContour', 'sp5'}])
+
+motor_nuclei = ['3N', '4N', '5N','6N', '7N', 'Amb', '12N', '10N']
+
+motor_nuclei_sided_sorted_by_rostral_caudal_position = \
+['3N_R', '3N_L', '4N_R', '4N_L', '5N_R', '5N_L', '6N_R', '6N_L', '7N_R', '7N_L', 'Amb_R', 'Amb_L', '12N', '10N_R', '10N_L']
 
 structures_sided_sorted_by_size = ['4N_L', '4N_R', '6N_L', '6N_R', 'Amb_L', 'Amb_R', 'PBG_L', 'PBG_R', '10N_L', '10N_R', 'AP', '3N_L', '3N_R', 'LC_L', 'LC_R', 'SNC_L', 'SNC_R', 'Tz_L', 'Tz_R', '7n_L', '7n_R', 'RMC_L', 'RMC_R', '5N_L', '5N_R', 'VCP_L', 'VCP_R', '12N', 'LRt_L', 'LRt_R', '7N_L', '7N_R', 'VCA_L', 'VCA_R', 'VLL_L', 'VLL_R', 'DC_L', 'DC_R', 'Sp5O_L', 'Sp5O_R', 'Sp5I_L', 'Sp5I_R', 'Pn_L', 'Pn_R', 'RtTg', 'SNR_L', 'SNR_R', 'Sp5C_L', 'Sp5C_R', 'IC', 'SC']
 structures_sided_sorted_by_rostral_caudal_position = ['SNC_R', 'SNC_L', 'SC', 'SNR_R', 'SNR_L', 'RMC_R', 'RMC_L', '3N_R', '3N_L', 'PBG_R', 'PBG_L', '4N_R', '4N_L', 'Pn_R', 'Pn_L', 'VLL_R', 'VLL_L', 'RtTg', '5N_R', '5N_L', 'LC_R', 'LC_L', 'Tz_R', 'Tz_L', 'VCA_R', 'VCA_L', '7n_R', '7n_L', '6N_R', '6N_L', 'DC_R', 'DC_L','VCP_R', 'VCP_L', '7N_R', '7N_L', 'Sp5O_R', 'Sp5O_L', 'Amb_R', 'Amb_L', 'Sp5I_R', 'Sp5I_L', 'AP', '12N', '10N_R', '10N_L', 'LRt_R', 'LRt_L', 'Sp5C_R', 'Sp5C_L']

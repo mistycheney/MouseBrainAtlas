@@ -11,8 +11,12 @@ from utilities2015 import *
 from metadata import *
 from data_manager import *
 
+@deprecated
 def get_structure_contours_from_structure_volumes(volumes, stack, sections, resolution, level=.5, sample_every=1):
     """
+    
+    TODO: replace all use of this function by `get_structure_contours_from_structure_volumes_v4`.
+    
     Re-section atlas volumes and obtain structure contours on each section.
     Resolution of output contours are in volume resolution.
 
@@ -65,9 +69,12 @@ def get_structure_contours_from_structure_volumes(volumes, stack, sections, reso
 
     return structure_contours
 
+@deprecated
 def get_structure_contours_from_aligned_atlas(volumes, volume_origin, stack, sections, downsample_factor=32, level=.5,
                                               sample_every=1, first_sec=1):
     """
+    TODO: replace all use of this function by `get_structure_contours_from_structure_volumes_v4`.
+    
     Re-section atlas volumes and obtain structure contours on each section.
 
     Args:
@@ -142,10 +149,20 @@ def get_structure_contours_from_aligned_atlas(volumes, volume_origin, stack, sec
     return structure_contours
 
 def convert_structure_annotation_to_volume_origin_dict_v2(structures_df, out_resolution=None, stack=None):
+    """
+    Convert dataframe read from 3D structure annotation files to a list of (volume, origin) tuples.
+    
+    Returns:
+        volume_origin_dict:
+        out_resolution: resolution of returned volumes.
+    """
 
     volume_origin_dict = {}
     for sid, structure_info in structures_df.iterrows():
         name_s = compose_label(structure_info['name'], structure_info['side'])
+        if structure_info['volume'] is None:
+            sys.stderr.write('Structure %s volume is None.\n' % (name_s))
+            continue
         v = bp.unpack_ndarray_str(structure_info['volume'])
 
         if out_resolution is None:

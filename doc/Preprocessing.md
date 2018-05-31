@@ -1,10 +1,10 @@
 # Naming convention for processed images #
 
-Every processed image can be uniquely identified by the following information:
-- image name: See below.
-- version: a word that specifies a channel or the processed result of a particular channel. For example, it can be "Ntb" for neurotrace channel, "CHAT" for the ChAT channel, "NtbNormalized" for the intensity-normalized neurotrace channel.
-- resolution: a word that specifies the pixel resolution. It can be "raw", "down32" (downsample raw data in both dimensions by a factor of 32), "thumbnail" (same as "down32"). It can also be an absolute physical size such as "10.0um".
-- prep id: a number or word that identifies the preprocessing procedure applied, such as rotation and cropping.
+Every processed image can be uniquely identified by a combination of the following information:
+- **image name**: a string that uniquely identifies a physical section.
+- **prep id**: a number or word that identifies the _spatial_ adjustment operations applied.
+- **version**: a word that specifies particular channel or _appearance_ adjustment operations.
+- **resolution**: a word that specifies the pixel resolution.
 
 Processed images are stored under `$DATA_ROOTDIR`. The path to each processed image follows the pattern `<stack>/<stack>_prep<prep_id>_<resol>_<version>/<image_name>_prep<prep_id>_<resol>_<version>.<ext>`.
 
@@ -19,6 +19,25 @@ The principle is that one can trace back from an image name to the physical sect
 Other than that, the brain id is optional but desired. Other information such as the scan date or stain name are optional.
 For example, both `CHATM3_slide31_2018_02_17-S2` and `Slide31-Nissl-S2` are valid image names.
 It is important to use only one composition rule for each brain. **Do not use space or special characters such as ampersand** as they will not be parsed correctly in Linux commandline.
+
+### Preprocessing Identifier (prep id) ###
+- None: original unaligned uncropped image
+- 1 (alignedPadded): section-to-section aligned, with large paddings.
+- 5 (alignedWithMargin): tightly crop over full tissue area with fixed small margin on all four sides.
+- 2 (alignedBrainstemCrop): crop only the brainstem area (from caudal end of thalamus to caudal end of trigeminal caudalis, from top of superior colliculus to bottom of brain)
+
+### Resolution ###
+- raw: original resolution of images. (0.325 micron/pixel for Axioscan, 0.46 micron/pixel for Nanozoomer)
+- thumbnail: usually 32x downscaled from raw
+- 10.0um: 10 micron
+
+### Version ###
+- Ntb: Neurotrace blue channel. Single-channel image.
+- NtbNormalized: linearly intensity stretched.
+- NtbNormalizedAdaptiveInvertedGamma: locally adaptive intensity normalized.
+- CHAT: ChAT signal channel. Single-channel image.
+- gray: single-channel grayscale images converted from RGB thionin images using skimage's `rgb2gray`.
+- mask: binary mask (1 for the tissue area, 0 for slide background).
 
 
 # General Steps:
@@ -41,9 +60,9 @@ It is important to use only one composition rule for each brain. **Do not use sp
 * prep5_raw -> prep2_raw
 * prep5_thumbnail -> prep2_thumbnail
 * prep5_thumbnail_mask -> prep2_thumbnail_mask
-* prep2_raw -> prep2_raw_gray: 30s * ~300 sections = 150 mins
-* prep2_raw_gray -> prep2_raw_grayJpeg: 20s * ~300 sections = 100 mins
-* prep2_raw -> prep2_raw_jpeg: 20s * ~300 sections = 100 mins
+* prep2_raw -> prep2_raw_gray
+* prep2_raw_gray -> prep2_raw_grayJpeg
+* prep2_raw -> prep2_raw_jpeg
 
 _prep2_raw_gray_ are used for structure detection.
 _prep5_raw_ will be published online.
@@ -51,18 +70,18 @@ _prep5_raw_ will be published online.
 ## For Neurotrace (fluorescent) data
 * raw -> raw_Ntb:
 * raw_Ntb -> thumbnail_Ntb
-* thumbnail_Ntb -> thumbnail_NtbNormalized: 0.1s/section
+* thumbnail_Ntb -> thumbnail_NtbNormalized
 * **Compute transforms using thumbnail_NtbNormalized**
 * **Supply prep1_thumbnail_mask**
 * prep1_thumbnail_mask -> thumbnail_mask
 * raw_Ntb -> raw_NtbNormalizedAdaptiveInvertedGamma (**brightness correction**)
 * **Compute prep5 (alignedWithMargin) cropping box based on prep1_thumbnail_mask**
-* raw_NtbNormalizedAdaptiveInvertedGamma -> prep5_raw_NtbNormalizedAdaptiveInvertedGamma: ~1.5min/section * 300 sections = 7.5 hrs
-* thumbnail_NtbNormalized -> prep5_thumbnail_NtbNormalized: 70s/stack (8 threads)
-* prep5_raw_NtbNormalizedAdaptiveInvertedGamma -> prep5_thumbnail_NtbNormalizedAdaptiveInvertedGamma: 5s/section
+* raw_NtbNormalizedAdaptiveInvertedGamma -> prep5_raw_NtbNormalizedAdaptiveInvertedGamma
+* thumbnail_NtbNormalized -> prep5_thumbnail_NtbNormalized
+* prep5_raw_NtbNormalizedAdaptiveInvertedGamma -> prep5_thumbnail_NtbNormalizedAdaptiveInvertedGamma
 * **Specify prep2 (alignedBrainstemCrop) cropping box**
-* prep5_raw_NtbNormalizedAdaptiveInvertedGamma -> prep2_raw_NtbNormalizedAdaptiveInvertedGamma: 1500s/stack (4 threads)
-* prep2_raw_NtbNormalizedAdaptiveInvertedGamma -> prep2_raw_NtbNormalizedAdaptiveInvertedGammaJpeg: 14s/section
+* prep5_raw_NtbNormalizedAdaptiveInvertedGamma -> prep2_raw_NtbNormalizedAdaptiveInvertedGamma
+* prep2_raw_NtbNormalizedAdaptiveInvertedGamma -> prep2_raw_NtbNormalizedAdaptiveInvertedGammaJpeg
 
 
 # jp2/czi -> raw

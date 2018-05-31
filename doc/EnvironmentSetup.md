@@ -7,7 +7,7 @@ This will download the scripts and the package containing the reference anatomic
 
 Edit `global_setting.py` to specify global data path variables.
 
-# Using iPython Notebook Server
+# Login into servers
 
 If using AWS, 
 - On your local machine, run:
@@ -18,12 +18,26 @@ Wait until the cluster creation finishes to see the master node IP, or log onto 
 If using the lab workstation,
 - Log in workstation, `ssh <workstaton_ip>`.
 
+# Configuring iPython notebook server
+
+Follow the steps in [Running a public notebook server](http://jupyter-notebook.readthedocs.io/en/stable/public_server.html).
+
+Additionally, in `.jupyter/jupyter_notebook_config.py` set `c.NotebookApp.ip = '*'`.
+
+# Launching iPython notebook server
+
 The following steps work the same for both AWS and the lab workstation.
 - Run `screen` to open a screen session (so the processes continue even if the terminal/SSH connection is closed)
-- Run `jupyter notebook <project_repo_dir> &` to start a Jupyter notebook in the background.
+- Run `REPO_DIR=<project_repo_dir> jupyter notebook <project_repo_dir> &` to start a Jupyter notebook in the background.
 - Run `screen -d` to detach the screen session.
 
 Then on your local machine,
-- Open a browser and go to `https//<server_ip>:8888` (assuming the Jupyter notebook uses port 8888). You can now access the notebook.
+- Open a browser and go to `https//<server_ip>:8888` (assuming the Jupyter notebook uses port 8888; try `http` instead of `https` if this failed). You can now access the notebook.
 
+# Other commands
+- `screen -r <session_id>` to resume the screen session.
+- `fg` to bring the Jupyter notebook process to foreground.
+- `bg` to put a process into background.
 
+If tab and arrow keys are not working, you are using sh rather than bash. Do the following:
+https://askubuntu.com/questions/163802/backspace-tab-del-and-arrow-keys-not-working-in-terminal-using-ssh

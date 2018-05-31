@@ -1,4 +1,4 @@
-# Rendering structures as meshes.
+# Rendering structures as meshes
 
 3-D meshes are stored as STL files.
 An STL file contains 

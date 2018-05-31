@@ -2,7 +2,7 @@
 
 ## Reconstruct annotation brain from 2-D contours
 
-`annotation/construct_annotation_volume_from_annotation_files_v5.ipynb`
+Notebook: `annotation/construct_annotation_volume_from_annotation_files_v5.ipynb`
 
 Output are at
 - `CSHL_volumes/<brain_name>/<brain_name>_10.0um_annotationAsScoreVolume/<brain_name>_10.0um_annotationAsScoreVolume_<sided_or_surround_structure>.bp`
@@ -10,7 +10,7 @@ Output are at
 
 ## Average annotation volumes to build atlas
 
-Reference: `3d/build_atlas_from_aligned_annotated_brains_v6.ipynb`
+Notebook: `3d/build_atlas_from_aligned_annotated_brains_v6.ipynb`
 
 ### Compute average positions
 

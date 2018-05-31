@@ -9,7 +9,7 @@ STL files can be visualized using [slicer](https://download.slicer.org/).
 
 STL files are under:
 - Subject.
-`/home/yuncong/CSHL_meshes/<brain_name>/<brain_name>_10.0um_annotationAsScoreVolume/<brain_name>_10.0um_annotationAsScoreVolume_<sided_structure>_l<level>.stl`
+`/home/yuncong/CSHL_meshes/<brain_name>/<brain_name>_10.0um_annotationAsScoreVolume/<brain_name>_10.0um_annotationAsScoreVolume_<sided_structure>.stl`
 
 - Atlas.
   - Structure meshes (different levels, located in _canonicalAtlasSpace_).  `/CSHL_meshes/<atlas_name>/<atlas_name>_10.0um_scoreVolume/<atlasname>_10.0um_scoreVolume_<sided_or_surround_structure>.stl`

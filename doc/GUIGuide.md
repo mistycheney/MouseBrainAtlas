@@ -2,7 +2,7 @@
 
 There are two ways to manipulate annotation on images.
 
-## Method 1: 3-D reconstruction from manually drawn contours.
+## Method 1: Manually draw contours.
 
 Create or edit contours. For complete instructions on how to interact with GUI, see [User Interface README](../gui/README.md).
 
@@ -17,3 +17,10 @@ Results are at `<stack>_annotation_structuresHanddrawn_<timestamp>.hdf`
 Also see [explanation of annotation file](FileOrganization.md)
 
 ## Method 2: Manual adjustment of pre-built atlas structures.
+
+
+# Check annotation content
+
+Check annotation entries using `annotation/check_annotation_file_v3.ipynb`.
+
+Generate annotation contour overlaid images using `annotation/visualize_annotations_v5.ipynb`.

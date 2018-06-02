@@ -1,4 +1,4 @@
-# Rendering structures as meshes.
+# Rendering structures as meshes
 
 3-D meshes are stored as STL files.
 An STL file contains 
@@ -7,11 +7,18 @@ An STL file contains
 
 STL files can be visualized using [slicer](https://download.slicer.org/).
 
-STL files are under:
-- Subject.
-`/home/yuncong/CSHL_meshes/<brain_name>/<brain_name>_10.0um_annotationAsScoreVolume/<brain_name>_10.0um_annotationAsScoreVolume_<sided_structure>_l<level>.stl`
+## Subject
 
-- Atlas.
+To generate meshes for structures in subject annotation brains:
+- shell: use `3d/render_shell_from_tissue_masks.ipynb`
+- other structures: `3d/visualize_annotated_brains.ipynb`
+
+Output are stored at
+`/home/yuncong/CSHL_meshes/<brain_name>/<brain_name>_10.0um_annotationAsScoreVolume/<brain_name>_10.0um_annotationAsScoreVolume_<sided_structure>.stl`
+
+## Atlas
+
+Output are stored at
   - Structure meshes (different levels, located in _canonicalAtlasSpace_).  `/CSHL_meshes/<atlas_name>/<atlas_name>_10.0um_scoreVolume/<atlasname>_10.0um_scoreVolume_<sided_or_surround_structure>.stl`
   - Mean positions (wrt _canonicalAtlasSpace_). `/CSHL_meshes/<atlas_name>/<atlas_name>_1um_meanPositions.pkl`
   - Mean shape meshes (different levels). `/CSHL_meshes/<atlas_name>/mean_shapes/<atlas_name>_10.0um_<sided_or_surround_structure>_meanShape_mesh_level<level>.stl`

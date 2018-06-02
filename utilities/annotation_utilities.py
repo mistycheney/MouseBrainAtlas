@@ -14,9 +14,9 @@ from data_manager import *
 @deprecated
 def get_structure_contours_from_structure_volumes(volumes, stack, sections, resolution, level=.5, sample_every=1):
     """
-    
+
     TODO: replace all use of this function by `get_structure_contours_from_structure_volumes_v4`.
-    
+
     Re-section atlas volumes and obtain structure contours on each section.
     Resolution of output contours are in volume resolution.
 
@@ -74,7 +74,7 @@ def get_structure_contours_from_aligned_atlas(volumes, volume_origin, stack, sec
                                               sample_every=1, first_sec=1):
     """
     TODO: replace all use of this function by `get_structure_contours_from_structure_volumes_v4`.
-    
+
     Re-section atlas volumes and obtain structure contours on each section.
 
     Args:
@@ -151,7 +151,7 @@ def get_structure_contours_from_aligned_atlas(volumes, volume_origin, stack, sec
 def convert_structure_annotation_to_volume_origin_dict_v2(structures_df, out_resolution=None, stack=None):
     """
     Convert dataframe read from 3D structure annotation files to a list of (volume, origin) tuples.
-    
+
     Returns:
         volume_origin_dict:
         out_resolution: resolution of returned volumes.
@@ -178,25 +178,6 @@ def convert_structure_annotation_to_volume_origin_dict_v2(structures_df, out_res
         volume_origin_dict[name_s] = (out_v, out_origin)
     return volume_origin_dict, out_resolution
 
-
-# def convert_structure_annotation_to_volume_origin_dict(structures_df, out_resolution=None, stack=None):
-#     volume_origin_dict = {}
-#     for sid, structure_info in structures_df.iterrows():
-#         name_s = compose_label(structure_info['name'], structure_info['side'])
-#         v = bp.unpack_ndarray_str(structure_info['volume_in_bbox'])
-#
-#         if out_resolution is None:
-#             out_resolution = structure_info['resolution']
-#             out_v = v
-#             out_origin = structure_info['origin']
-#         else:
-#             in_voxel_um = convert_resolution_string_to_voxel_size(resolution=structure_info['resolution'], stack=stack)
-#             out_voxel_um = convert_resolution_string_to_voxel_size(resolution=out_resolution, stack=stack)
-#             out_v = rescale_by_resampling(v, in_voxel_um/out_voxel_um)
-#             out_origin = structure_info['origin'] * in_voxel_um/out_voxel_um
-#
-#         volume_origin_dict[name_s] = (out_v, out_origin)
-#     return volume_origin_dict, out_resolution
 
 def annotation_volume_to_score_volume(ann_vol, label_to_structure):
     """
@@ -236,73 +217,29 @@ def contours_to_mask(contours, img_shape):
     final_mask = np.any(final_masks, axis=0)
     return final_mask
 
-
-# def get_surround_volume(vol, distance=5, valid_level=0, prob=False):
-#     """
-#     Return the volume with voxels surrounding the active voxels in the input volume set to 1 (prob=False) or 1 - vol (prob=True)
-
-#     Args:
-#         vol (3D ndarray of float):
-#             input volume. It is the whole space rather than a bbox around structure.
-#         valid_level (float):
-#             voxels with value above this level are regarded as active.
-#         distance (int):
-#             surrounding voxels are closer than distance (in unit of voxel) from any active voxels.
-#         prob (bool):
-#             if True, surround voxels are assigned 1-vol; if False, surround voxels are assigned 1.
-#     """
-#     from scipy.ndimage.morphology import distance_transform_edt
-#     distance = int(np.round(distance))
-
-#     eps = 5
-#     xmin, xmax, ymin, ymax, zmin, zmax = bbox_3d(vol)
-#     ydim, xdim, zdim = vol.shape
-#     roi_xmin = max(0, xmin - distance - eps)
-#     roi_ymin = max(0, ymin - distance - eps)
-#     roi_zmin = max(0, zmin - distance - eps)
-#     roi_xmax = min(xdim-1, xmax + distance + eps)
-#     roi_ymax = min(ydim-1, ymax + distance + eps)
-#     roi_zmax = min(zdim-1, zmax + distance + eps)
-#     # print roi_ymin,roi_ymax+1, roi_xmin,roi_xmax+1, roi_zmin,roi_zmax+1
-#     roi = (vol > valid_level)[roi_ymin:roi_ymax+1, roi_xmin:roi_xmax+1, roi_zmin:roi_zmax+1]
-
-#     dist_vol = distance_transform_edt(roi == 0)
-#     roi_surround_vol = (dist_vol > 0) & (dist_vol < distance) # surround part is True, otherwise False.
-
-#     surround_vol = np.zeros_like(vol)
-#     if prob:
-#         surround_vol[roi_ymin:roi_ymax+1, roi_xmin:roi_xmax+1, roi_zmin:roi_zmax+1][roi_surround_vol] = 1. - vol[roi_ymin:roi_ymax+1, roi_xmin:roi_xmax+1, roi_zmin:roi_zmax+1][roi_surround_vol]
-#     else:
-#         surround_vol[roi_ymin:roi_ymax+1, roi_xmin:roi_xmax+1, roi_zmin:roi_zmax+1] = roi_surround_vol
-
-#     return surround_vol
-
-def get_surround_volume_v2(vol, bbox=None, origin=None, distance=5, wall_level=0, prob=False, return_origin_instead_of_bbox=False, padding=5):
+def get_surround_volume_v3(volume, distance=5, wall_level=0, prob=False, return_origin_instead_of_bbox=True, padding=5):
     """
-    Return the (volume, bbox) with voxels surrounding the ``active" voxels in the input volume set to 1 (prob=False) or 1 - vol (prob=True)
+    Return the volume with voxels surrounding the ``active" voxels in the input volume set to 1 (prob=False) or 1 - vol (prob=True)
 
     Args:
-        vol (3D ndarray of float): input volume in bbox.
-        bbox ((6,)-array): bbox
-        origin ((3,)-array): origin
-        wall_level (float):
-            voxels with value above this level are regarded as active.
-        distance (int):
-            surrounding voxels are closer than distance (in unit of voxel) from any active voxels.
-        prob (bool):
-            if True, surround voxels are assigned 1 - voxel value; if False, surround voxels are assigned 1.
+        volume: (vol, origin)
+        wall_level (float): voxels with value above this level are regarded as active.
+        distance (int): surrounding voxels are closer than distance (in unit of voxel) from any active voxels.
+        prob (bool): if True, surround voxels are assigned 1 - voxel value; if False, surround voxels are assigned 1.
         padding (int): extra zero-padding, in unit of voxels.
 
     Returns:
-        (volume, bbox)
+        (surround_volume, surround_volume_origin)
     """
     from scipy.ndimage.morphology import distance_transform_edt
     distance = int(np.round(distance))
 
     # Identify the bounding box for the surrouding area.
 
-    if bbox is None:
-        bbox = volume_origin_to_bbox(vol > wall_level, origin)
+    vol, origin = volume
+    
+    # if bbox is None:
+    bbox = volume_origin_to_bbox(vol > wall_level, origin)
 
     xmin, xmax, ymin, ymax, zmin, zmax = bbox
     roi_xmin = xmin - distance - padding
@@ -329,6 +266,61 @@ def get_surround_volume_v2(vol, bbox=None, origin=None, distance=5, wall_level=0
             return roi_surround_vol, roi_bbox[[0,2,4]]
         else:
             return roi_surround_vol, roi_bbox
+
+
+# @deprecated
+# def get_surround_volume_v2(vol, bbox=None, origin=None, distance=5, wall_level=0, prob=False, return_origin_instead_of_bbox=False, padding=5):
+#     """
+#     Return the (volume, bbox) with voxels surrounding the ``active" voxels in the input volume set to 1 (prob=False) or 1 - vol (prob=True)
+
+#     Args:
+#         vol (3D ndarray of float): input volume in bbox.
+#         bbox ((6,)-array): bbox
+#         origin ((3,)-array): origin
+#         wall_level (float):
+#             voxels with value above this level are regarded as active.
+#         distance (int):
+#             surrounding voxels are closer than distance (in unit of voxel) from any active voxels.
+#         prob (bool):
+#             if True, surround voxels are assigned 1 - voxel value; if False, surround voxels are assigned 1.
+#         padding (int): extra zero-padding, in unit of voxels.
+
+#     Returns:
+#         (volume, bbox)
+#     """
+#     from scipy.ndimage.morphology import distance_transform_edt
+#     distance = int(np.round(distance))
+
+#     # Identify the bounding box for the surrouding area.
+
+#     if bbox is None:
+#         bbox = volume_origin_to_bbox(vol > wall_level, origin)
+
+#     xmin, xmax, ymin, ymax, zmin, zmax = bbox
+#     roi_xmin = xmin - distance - padding
+#     roi_ymin = ymin - distance - padding
+#     roi_zmin = zmin - distance - padding
+#     roi_xmax = xmax + distance + padding
+#     roi_ymax = ymax + distance + padding
+#     roi_zmax = zmax + distance + padding
+#     roi_bbox = np.array((roi_xmin,roi_xmax,roi_ymin,roi_ymax,roi_zmin,roi_zmax))
+#     vol_roi = crop_and_pad_volume(vol, in_bbox=bbox, out_bbox=roi_bbox)
+
+#     dist_vol = distance_transform_edt(vol_roi < wall_level)
+#     roi_surround_vol = (dist_vol > 0) & (dist_vol < distance) # surround part is True, otherwise False.
+
+#     if prob:
+#         surround_vol = np.zeros_like(vol_roi)
+#         surround_vol[roi_surround_vol] = 1. - vol_roi[roi_surround_vol]
+#         if return_origin_instead_of_bbox:
+#             return surround_vol, roi_bbox[[0,2,4]]
+#         else:
+#             return surround_vol, roi_bbox
+#     else:
+#         if return_origin_instead_of_bbox:
+#             return roi_surround_vol, roi_bbox[[0,2,4]]
+#         else:
+#             return roi_surround_vol, roi_bbox
 
 
 def points_inside_contour(cnt, num_samples=None):
@@ -383,54 +375,29 @@ def assign_sideness(label_polygons, landmark_range_limits=None):
     return label_polygons_sideAssigned
 
 
-# def get_annotation_on_sections(stack=None, username=None, label_polygons=None, filtered_labels=None):
-#     """
-#     Get a dictionary, whose keys are landmark names and
-#     values are indices of sections containing particular landmarks.
-#
-#     Parameters
-#     ----------
-#     stack : str
-#     username : str
-#     label_polygon : pandas.DataFrame, optional
-#     filtered_labels : list of str, optional
-#     """
-#
-#     assert stack is not None or label_polygons is not None
-#
-#     if label_polygons is None:
-#         label_polygons = load_label_polygons_if_exists(stack, username)
-#
-#     annotation_on_sections = {}
-#
-#     if filtered_labels is None:
-#         labels = set(label_polygons.columns)
-#     else:
-#         labels = set(label_polygons.columns) & set(filtered_labels)
-#
-#     for l in labels:
-#         annotation_on_sections[l] = list(label_polygons[l].dropna().keys())
-#
-#     return annotation_on_sections
-
-def get_landmark_range_limits_v3(stack=None, label_section_lookup=None, filtered_labels=None, mid_index=None):
+def get_landmark_range_limits_v3(stack=None, label_indices_lookup=None, filtered_labels=None, mid_index=None):
     """
     Identify the index range spanned by each structure.
 
     Args:
-        label_section_lookup (dict): {label: index list}.
+        label_indices_lookup (dict): {label: index list}.
     """
 
-    print 'label_section_lookup:', label_section_lookup
+    print 'label_indices_lookup:'
+
+    print
+    for label in sorted(label_indices_lookup.keys()):
+        print label, label_indices_lookup[label]
+    print
 
     print 'Estimated mid-sagittal image index = %d' % (mid_index)
 
     landmark_limits = {}
 
-    structures_sided = set(label_section_lookup.keys())
+    structures_sided = set(label_indices_lookup.keys())
 
     if filtered_labels is not None:
-        structures_sided = set(label_section_lookup.keys()) & set(filtered_labels)
+        structures_sided = set(label_indices_lookup.keys()) & set(filtered_labels)
 
     structures_unsided = set(map(convert_to_unsided_label, structures_sided))
 
@@ -438,7 +405,7 @@ def get_landmark_range_limits_v3(stack=None, label_section_lookup=None, filtered
 
         if name_u in singular_structures:
             # single
-            sections = sorted(label_section_lookup[name_u]) if name_u in label_section_lookup else []
+            sections = sorted(label_indices_lookup[name_u]) if name_u in label_indices_lookup else []
             assert len(sections) > 0
 
             landmark_limits[name_u] = (np.min(sections), np.max(sections))
@@ -448,9 +415,9 @@ def get_landmark_range_limits_v3(stack=None, label_section_lookup=None, filtered
             lname = convert_to_left_name(name_u)
             rname = convert_to_right_name(name_u)
 
-            confirmed_left_sections = sorted(label_section_lookup[lname]) if lname in label_section_lookup else []
-            confirmed_right_sections = sorted(label_section_lookup[rname]) if rname in label_section_lookup else []
-            unconfirmed_side_sections = sorted(label_section_lookup[name_u]) if name_u in label_section_lookup else []
+            confirmed_left_sections = sorted(label_indices_lookup[lname]) if lname in label_indices_lookup else []
+            confirmed_right_sections = sorted(label_indices_lookup[rname]) if rname in label_indices_lookup else []
+            unconfirmed_side_sections = sorted(label_indices_lookup[name_u]) if name_u in label_indices_lookup else []
 
             sections = sorted(confirmed_left_sections + confirmed_right_sections + unconfirmed_side_sections)
             assert len(sections) > 0
@@ -504,240 +471,6 @@ def get_landmark_range_limits_v3(stack=None, label_section_lookup=None, filtered
             landmark_limits[rname] = (minR, maxR)
 
     return landmark_limits
-
-
-# def get_landmark_range_limits_v2(stack=None, label_section_lookup=None, filtered_labels=None):
-#     """
-#     Identify the section range spanned by each structure.
-#
-#     Args:
-#         label_section_lookup (dict): {label: section list}.
-#     """
-#
-#     print 'label_section_lookup:', label_section_lookup
-#
-#     first_sec, last_sec = DataManager.load_cropbox(stack)[4:]
-#     mid_sec = (first_sec + last_sec) / 2
-#     print 'Estimated mid-sagittal section = %d' % (mid_sec)
-#
-#     landmark_limits = {}
-#
-#     structures_sided = set(label_section_lookup.keys())
-#
-#     if filtered_labels is not None:
-#         structures_sided = set(label_section_lookup.keys()) & set(filtered_labels)
-#
-#     structures_unsided = set(map(convert_to_unsided_label, structures_sided))
-#
-#     for name_u in structures_unsided:
-#
-#         lname = convert_to_left_name(name_u)
-#         rname = convert_to_right_name(name_u)
-#
-#         sections = np.array(sorted(np.concatenate([label_section_lookup[name] for name in [name_u, lname, rname] if name in label_section_lookup])))
-#         assert len(sections) > 0
-#
-#         if name_u in singular_structures:
-#             # single
-#             landmark_limits[name_u] = (sections.min(), sections.max())
-#         else:
-#             # paired
-#
-#             if len(sections) == 1:
-#                 sys.stderr.write('Structure %s has a label on only one section. Use its side relative to the middle section.\n' % name_u)
-#                 sec = sections[0]
-#                 if sec < mid_sec:
-#                     landmark_limits[lname] = (sec, sec)
-#                 else:
-#                     landmark_limits[rname] = (sec, sec)
-#                 continue
-#
-#             else:
-#
-#                 inferred_Ls = sections[sections < mid_sec]
-#                 if len(inferred_Ls) > 0:
-#                     inferred_maxL = np.max(inferred_Ls)
-#                 else:
-#                     inferred_maxL = None
-#
-#                 inferred_Rs = sections[sections >= mid_sec]
-#                 if len(inferred_Rs) > 0:
-#                     inferred_minR = np.min(inferred_Rs)
-#                 else:
-#                     inferred_minR = None
-#
-#                 # diffs = np.diff(sections)
-#                 # print 'diff', diffs
-#                 # peak = np.argmax(diffs)
-#                 # print 'peak', peak
-#                 #
-#                 # inferred_maxL = sections[peak]
-#                 # print 'inferred_maxL', inferred_maxL
-#                 # inferred_minR = sections[peak+1]
-#                 # print 'inferred_minR', inferred_minR
-#
-#                 # print 'label_section_lookup', label_section_lookup
-#
-#                 if lname in label_section_lookup:
-#                     minL = np.min(sections)
-#                     labeled_maxL = np.max(label_section_lookup[lname])
-#                     maxL = max(labeled_maxL, inferred_maxL if inferred_maxL is not None else 0)
-#                 else:
-#                     minL = None
-#                     labeled_maxL = None
-#                     maxL = inferred_maxL
-#
-#                 if rname in label_section_lookup:
-#                     maxR = np.max(sections)
-#                     labeled_minR = np.min(label_section_lookup[rname])
-#                     minR = min(labeled_minR, inferred_minR if inferred_minR is not None else 999)
-#                 else:
-#                     maxR = None
-#                     labeled_minR = None
-#                     minR = inferred_minR
-#
-#             #     if maxL is not None:
-#             #         landmark_limits[lname] = (np.min(sections), maxL)
-#             #
-#             #     if minR is not None:
-#             #         landmark_limits[rname] = (minR, np.max(sections))
-#             #
-#             #     if maxL >= minR:
-#             #         sys.stderr.write('Left and right labels for %s overlap.\n' % name_u)
-#             #         # sys.stderr.write('labeled_maxL=%d, inferred_maxL=%d, labeled_minR=%d, inferred_minR=%d\n' %
-#             #         #                  (labeled_maxL, inferred_maxL, labeled_minR, inferred_minR))
-#             #
-#             #         if inferred_maxL < inferred_minR:
-#             #             maxL = inferred_maxL
-#             #             minR = inferred_minR
-#             #             sys.stderr.write('[Resolved] using inferred maxL/minR.\n')
-#             #         elif labeled_maxL < labeled_minR:
-#             #             maxL = labeled_maxL
-#             #             minR = labeled_minR
-#             #             sys.stderr.write('[Resolved] using labeled maxL/minR.\n')
-#             #         else:
-#             #             sys.stderr.write('#### Cannot resolve.. ignored.\n')
-#             #             continue
-#
-#             landmark_limits[lname] = (minL, maxL)
-#             landmark_limits[rname] = (minR, maxR)
-#
-#             print 'label:', name_u
-#             print 'sections:', sections
-#             print 'inferred_maxL:', inferred_maxL, ', labeled_maxL:', labeled_maxL, ', inferred_minR:', inferred_minR, ', labeled_minR:', labeled_minR
-#             print '\n'
-#
-#     return landmark_limits
-
-
-# def get_landmark_range_limits(stack=None, username=None, label_polygons=None, label_section_lookup=None, filtered_labels=None):
-#     """
-#     Get a dictionary, whose keys are landmark names and
-#     values are tuples specifying the first and last sections that have the particular landmarks.
-#
-#     Parameters
-#     ----------
-#     stack : str
-#     username : str
-#     label_polygon : pandas.DataFrame, optional
-#     filtered_labels : list of str, optional
-#     """
-#
-#     assert stack is not None or label_polygons is not None
-#
-#     if label_polygons is None:
-#         label_polygons = load_label_polygons_if_exists(stack, username)
-#
-#     mid_sec = (label_polygons.index[0]+label_polygons.index[-1])/2
-#
-#     landmark_limits = {}
-#
-#     if filtered_labels is None:
-#         d = set(label_polygons.keys())
-#     else:
-#         d = set(label_polygons.keys()) & set(filtered_labels)
-#
-#     d_unsided = set(map(convert_name_to_unsided, d))
-#
-#     for name_u in d_unsided:
-#
-#         lname = convert_to_left_name(name_u)
-#         rname = convert_to_right_name(name_u)
-#
-#         secs = []
-#
-#         if name_u in label_polygons:
-#             secs += list(label_polygons[name_u].dropna().keys())
-#
-#         if lname in label_polygons:
-#             secs += list(label_polygons[lname].dropna().keys())
-#
-#         if rname in label_polygons:
-#             secs += list(label_polygons[rname].dropna().keys())
-#
-#         secs = np.array(sorted(secs))
-#
-#         if name_u in singular_structures: # single
-#             landmark_limits[name_u] = (secs.min(), secs.max())
-#         else: # two sides
-#
-#             if len(secs) == 1:
-#                 sys.stderr.write('Structure %s has label on only one section.\n' % name_u)
-#                 sec = secs[0]
-#                 if sec < mid_sec:
-#                     landmark_limits[lname] = (sec, sec)
-#                 else:
-#                     landmark_limits[rname] = (sec, sec)
-#                 continue
-#
-#             elif len(secs) == 0:
-#                 raise
-#             else:
-#
-#                 diffs = np.diff(secs)
-#                 peak = np.argmax(diffs)
-#
-#                 inferred_maxL = secs[peak]
-#                 inferred_minR = secs[peak+1]
-#
-#                 if lname in label_polygons:
-#                     labeled_maxL = label_polygons[lname].dropna().keys().max()
-#                     maxL = max(labeled_maxL, inferred_maxL)
-#                 else:
-#                     maxL = inferred_maxL
-#
-#                 if rname in label_polygons:
-#                     labeled_minR = label_polygons[rname].dropna().keys().min()
-#                     minR = min(labeled_minR, inferred_minR)
-#                 else:
-#                     minR = inferred_minR
-#
-#                 if maxL >= minR:
-#                     sys.stderr.write('Left and right labels for %s overlap.\n' % name_u)
-#                     # sys.stderr.write('labeled_maxL=%d, inferred_maxL=%d, labeled_minR=%d, inferred_minR=%d\n' %
-#                     #                  (labeled_maxL, inferred_maxL, labeled_minR, inferred_minR))
-#
-#                     if inferred_maxL < inferred_minR:
-#                         maxL = inferred_maxL
-#                         minR = inferred_minR
-#                         sys.stderr.write('[Resolved] using inferred maxL/minR.\n')
-#                     elif labeled_maxL < labeled_minR:
-#                         maxL = labeled_maxL
-#                         minR = labeled_minR
-#                         sys.stderr.write('[Resolved] using labeled maxL/minR.\n')
-#                     else:
-#                         sys.stderr.write('#### Cannot resolve.. ignored.\n')
-#                         continue
-#
-#             landmark_limits[lname] = (secs.min(), maxL)
-#             landmark_limits[rname] = (minR, secs.max())
-#
-#             # print 'label:', name_u
-#             # print 'secs:', secs
-#             # print 'inferred_maxL:', inferred_maxL, ', labeled_maxL:', labeled_maxL, ', inferred_minR:', inferred_minR, ', labeled_minR:', labeled_minR
-#             # print '\n'
-#
-#     return landmark_limits
 
 def generate_annotaion_list(stack, username, filepath=None):
 
@@ -861,46 +594,6 @@ def generate_label_polygons(stack, username, orientation=None, downsample=None, 
     label_polygons.default_factory = None
 
     return label_polygons
-
-
-# def generate_label_polygons(stack, username, output_path=None,
-#                             labels_merge_map={'SolM': 'Sol', 'LC2':'LC', 'Pn2': 'Pn', '7n1':'7n', '7n2':'7n', '7n3':'7n'},
-#                             annotation_rootdir=None):
-#     """Convert annotation files to polygon objects.
-#     """
-#
-#     # dm = DataManager(stack=stack)
-#     label_polygons = defaultdict(lambda: {})
-#     section_bs_begin, section_bs_end = section_range_lookup[stack]
-#     for sec in range(section_bs_begin, section_bs_end+1):
-#
-#         # dm.set_slice(sec)
-#         ret = DataManager.load_annotation(stack=stack, section=sec, username=username, timestamp='latest', annotation_rootdir=annotation_rootdir)
-#         if ret is None:
-#             continue
-#         annotations, usr, ts = ret
-#
-#         # for ann in annotations:
-#         for ann in annotations['polygons']:
-#             label = ann['label']
-#             if label in labels_merge_map:
-#                 label = labels_merge_map[label]
-#             elif '_' in label and label[:-2] in labels_merge_map: # strip off sideness suffix
-#                 label = labels_merge_map[label[:-2]] + label[-2:]
-#
-#             if label not in labels_unsided + labels_sided: # 12N_L -> 12N
-#                 if '_' in label and label[:-2] in labelMap_unsidedToSided and len(labelMap_unsidedToSided[label[:-2]]) == 1:
-#                     label = label[:-2]
-#                 else:
-#                     # raise Exception('Label %s is not recognized.' % label)
-#                     sys.stderr.write('Label %s on Section %d is not recognized.\n' % (label, sec))
-#                     continue
-#
-#             label_polygons[label][sec] = np.array(ann['vertices']).astype(np.int)
-#
-#     label_polygons.default_factory = None
-#
-#     return label_polygons
 
 
 
@@ -1236,36 +929,34 @@ def interpolate_contours(cnt1, cnt2, nlevels, len_interval_0=20):
 
 def convert_annotation_v3_original_to_aligned(contour_df, stack):
 
-    # with open(thumbnail_data_dir + '/%(stack)s/%(stack)s_sorted_filenames.txt'%dict(stack=stack), 'r') as f:
-    #     fn_idx_tuples = [line.strip().split() for line in f.readlines()]
-    #     filename_to_section = {fn: int(idx) for fn, idx in fn_idx_tuples}
     filename_to_section, _ = DataManager.load_sorted_filenames(stack)
 
     # import cPickle as pickle
-    # Ts = pickle.load(open(thumbnail_data_dir + '/%(stack)s/%(stack)s_elastix_output/%(stack)s_transformsTo_anchor.pkl' % dict(stack=stack), 'r'))
     Ts = DataManager.load_transforms(stack=stack, downsample_factor=1, use_inverse=True)
 
-    for cnt_id, cnt in contour_df[(contour_df['orientation'] == 'sagittal') & (contour_df['downsample'] == 1)].iterrows():
-        fn = cnt['filename']
-        if fn not in filename_to_section:
+    contour_df_out = contour_df.copy()
+    
+    for cnt_id, cnt in contour_df[(contour_df['orientation'] == 'sagittal') & (contour_df['resolution'] == 'raw')].iterrows():
+        
+        img_name = cnt['filename']
+        if img_name not in filename_to_section:
             continue
-        sec = filename_to_section[fn]
-        contour_df.loc[cnt_id, 'section'] = sec
+        sec = filename_to_section[img_name]
+        contour_df_out.loc[cnt_id, 'section'] = sec
 
-        # T = Ts[fn].copy()
-        # T[:2, 2] = T[:2, 2]*32
-        # Tinv = np.linalg.inv(T)
-        Tinv = Ts[fn]
+        Tinv = Ts[img_name]
 
         n = len(cnt['vertices'])
-
+        
         vertices_on_aligned_cropped = np.dot(Tinv, np.c_[cnt['vertices'], np.ones((n,))].T).T[:, :2]
-        contour_df.set_value(cnt_id, 'vertices', vertices_on_aligned_cropped)
+        contour_df_out.set_value(cnt_id, 'vertices', vertices_on_aligned_cropped)
 
         label_position_on_aligned_cropped = np.dot(Tinv, np.r_[cnt['label_position'], 1])[:2]
-        contour_df.set_value(cnt_id, 'label_position', label_position_on_aligned_cropped)
+        contour_df_out.set_value(cnt_id, 'label_position', label_position_on_aligned_cropped)
+        
+        print cnt['label_position'], label_position_on_aligned_cropped, contour_df_out.loc[cnt_id]['label_position']
 
-    return contour_df
+    return contour_df_out
 
 def convert_annotation_v3_original_to_aligned_cropped_v2(contour_df, stack, out_resolution, prep_id=2):
     """
@@ -1303,55 +994,6 @@ def convert_annotation_v3_original_to_aligned_cropped_v2(contour_df, stack, out_
 
     return contour_df
 
-
-# def convert_annotation_v3_original_to_aligned_cropped(contour_df, stack, out_downsample=1, prep_id=2):
-#     """
-#     Convert contours defined wrt original reference frame in raw scale (downsample=1) to
-#     contours defined wrt aligned cropped images in scale `out_downsample`.
-#
-#     Args:
-#         out_downsample (float): Output the contours at this downsample level. Default is 1.
-#     """
-#
-#     contour_df = contour_df.copy()
-#
-#     filename_to_section, _ = DataManager.load_sorted_filenames(stack)
-#
-#     if prep_id == 2:
-#         xmin, xmax, ymin, ymax, _, _ = DataManager.load_cropbox(stack)
-#     elif prep_id == 3:
-#         xmin, xmax, ymin, ymax, _, _ = DataManager.load_cropbox_thalamus(stack)
-#     else:
-#         raise
-#
-#     Ts = DataManager.load_transforms(stack=stack, downsample_factor=1, use_inverse=True)
-#
-#     for cnt_id, cnt in contour_df[(contour_df['orientation'] == 'sagittal') & (contour_df['downsample'] == 1)].iterrows():
-#         # fn = cnt['filename']
-#         # if fn not in filename_to_section:
-#         #     continue
-#         # sec = filename_to_section[fn]
-#         sec = cnt['section']
-#         if sec not in metadata_cache['valid_sections'][stack]:
-#             continue
-#         fn = metadata_cache['sections_to_filenames'][stack][sec]
-#         contour_df.loc[cnt_id, 'section'] = sec
-#
-#         Tinv = Ts[fn]
-#
-#         n = len(cnt['vertices'])
-#
-#         vertices_on_aligned_cropped = np.dot(Tinv, np.c_[cnt['vertices'], np.ones((n,))].T).T[:, :2] - (xmin*32, ymin*32)
-#         vertices_on_aligned_cropped = vertices_on_aligned_cropped / out_downsample
-#         contour_df.set_value(cnt_id, 'vertices', vertices_on_aligned_cropped)
-#         contour_df.set_value(cnt_id, 'downsample', out_downsample)
-#
-#         if 'label_position' in cnt and cnt['label_position'] is not None:
-#             label_position_on_aligned_cropped = np.dot(Tinv, np.r_[cnt['label_position'], 1])[:2] - (xmin*32, ymin*32)
-#             label_position_on_aligned_cropped = label_position_on_aligned_cropped / out_downsample
-#             contour_df.set_value(cnt_id, 'label_position', label_position_on_aligned_cropped)
-#
-#     return contour_df
 
 def convert_annotation_v3_aligned_cropped_to_original_v2(contour_df, stack, resolution=1, prep_id=2):
     """
@@ -1430,7 +1072,10 @@ def convert_annotations(contour_df, stack, in_wrt, in_resol, out_wrt, out_resol)
         # convert_resolution_string_to_voxel_size(resolution=resolution, stack=stack) / \
         # convert_resolution_string_to_voxel_size(resolution='raw', stack=stack) + (xmin_down32 * 32., ymin_down32 * 32.)
         # out_vertices = np.dot(T_rawResol, np.c_[vertices_wrt_alignedUncropped_rawResol, np.ones((len(vertices_wrt_alignedUncropped_rawResol),))].T).T[:, :2]
-        out_vertices = convert_frame_and_resolution(p=in_vertices, in_wrt=in_wrt, in_resolution=in_resol, out_wrt=out_wrt, out_resolution=out_resol)
+        
+        converter = CoordinatesConverter(stack=stack)
+        
+        out_vertices = converter.convert_frame_and_resolution(p=in_vertices, in_wrt=in_wrt, in_resolution=in_resol, out_wrt=out_wrt, out_resolution=out_resol)
 
         contour_df.set_value(cnt_id, 'vertices', out_vertices)
         contour_df.set_value(cnt_id, 'resolution', 'raw')
@@ -1438,7 +1083,7 @@ def convert_annotations(contour_df, stack, in_wrt, in_resol, out_wrt, out_resol)
         if 'label_position' in cnt and cnt['label_position'] is not None:
 
             in_label_pos = cnt['label_position']
-            out_label_pos = convert_frame_and_resolution(p=in_label_pos, in_wrt=in_wrt, in_resolution=in_resol, out_wrt=out_wrt, out_resolution=out_resol)
+            out_label_pos = converter.convert_frame_and_resolution(p=in_label_pos, in_wrt=in_wrt, in_resolution=in_resol, out_wrt=out_wrt, out_resolution=out_resol)
             contour_df.set_value(cnt_id, 'label_position', out_label_pos)
 
             # label_position_wrt_alignedUncropped_rawResol = np.array(cnt['label_position']) * \

@@ -722,6 +722,8 @@ class BrainLabelingGUI(QMainWindow, Ui_BrainLabelingGui):
         Save 2-D boundaries (main sagittal scene).
         """
 
+        self.gscenes['main_sagittal'].infer_side()
+
         timestamp = get_timestamp_now()
 
         sagittal_contour_entries_curr_session = self.gscenes['main_sagittal'].convert_drawings_to_entries(timestamp=timestamp, username=self.username)

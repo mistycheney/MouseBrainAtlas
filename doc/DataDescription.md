@@ -17,7 +17,7 @@ The following _volume types_ are defined, each with a different 3-d array data t
 - `score`: float between 0 and 1
 - `intensity`: uint8
 
-`volume_spec` of particular data is defined in their individual pages.
+`volume_spec` of particular data is defined in individual component pages.
 
 Registration results
 ===========

@@ -6,6 +6,7 @@
 - [Data Description](DataDescription.md)
 - [Data Organization](FileOrganization.md)
 - [Environment Setup](EnvironmentSetup.md)
+- [Structure Names](StructureNames.md)
 
 ## Individual Components
 

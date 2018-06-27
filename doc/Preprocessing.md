@@ -91,7 +91,9 @@ Data from CSHL are acquired using Hamamatsu Nanozoomer (0.46 micron/pixel).
 Raw data from the scanner are NDPI files. 
 The raw files are of whole-slides and do not specify the bounding box of individual sections.
 CSHL did the segmentation and sent us images of individual sections re-encoded as JPEG2000 files.
-(Note: we do not have the segmentation code at this moment.) 
+(Note: we do not have the segmentation code at this moment.)
+
+For each image, there are four files. The png and tif are thumbnails. Ignore the lossy jp2 file. The lossless jp2 is the raw data.
 
 ### Convert JPEG2000 to TIF
 Use [Kakadu](http://kakadusoftware.com/downloads/). Run `export LD_LIBRARY_PATH=<kdu_dir>:$LD_LIBRARY_PATH; <kdu_bin> -i <in_fp> -o <out_fp>`.

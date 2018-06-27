@@ -16,7 +16,7 @@ Development and validation used ~20 brains, prepared by Partha Mitra's lab in Co
 Atlas Data
 ==================
 
-[List of structure names](StructureNames.txt)
+[List of structure names](StructureNames.md)
 
 
 Intermediate Data

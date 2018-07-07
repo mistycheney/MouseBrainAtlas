@@ -1,5 +1,5 @@
 ## Paired structures
-For a particular such structure `X`, the name of the left side instance is `X_L` and that of the right side instance is `X_R`.
+For a particular paired structure `X`, the name of the left side instance is `X_L` and that of the right side instance is `X_R`.
 - 5N
 - 6N
 - 7N

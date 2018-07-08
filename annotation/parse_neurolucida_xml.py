@@ -122,7 +122,7 @@ for name, cnts3d in contours_atlasResol.iteritems():
     surround_name = convert_to_surround_name(name, margin='%dum' % surround_distance_um)
 
     reconstructed_brain[surround_name] = \
-    get_surround_volume_v2(vol=reconstructed_brain[name][0], origin=reconstructed_brain[name][1], 
+    get_surround_volume_v3(vol=reconstructed_brain[name][0], origin=reconstructed_brain[name][1], 
                            wall_level=valid_level, distance=surround_distance_voxel, 
                            prob=True,
                            return_origin_instead_of_bbox=True)

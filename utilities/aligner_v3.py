@@ -51,6 +51,7 @@ class Aligner(object):
             zrange (2-tuple): If given, only use the portion of both volumes that is between zmin and zmax (inclusive).
             nz_thresh (float): only voxels with score higher than this threshold are used for registration.
             init_T ((12,)-array): initial transform
+            invalid_voxel_penalty (float): the score is -invalid_voxel_penalty for every out-of-boundary voxel.
         """
 
         self.invalid_voxel_penalty = invalid_voxel_penalty

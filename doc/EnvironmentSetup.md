@@ -3,20 +3,21 @@
 
 ### Python packages 
 
-First install `pip`.
+First install pip:
+`sudo apt-get install python-pip`
 
 It is recommended to install and use virtualenv ([guide](http://exponential.io/blog/2015/02/10/install-virtualenv-and-virtualenvwrapper-on-ubuntu)).
 
 To install required Python packages, 
-`$ pip install -r requirements.txt`
+`pip install -r requirements.txt`
 
 `requirements.txt` specifies the names and versions of all packages.
 
 ### Jupyter (iPython)
-`$ pip install jupyter`
+`pip install jupyter`
 
 ### PyQt4 (for annotation GUI)
-`$ sudo apt-get install python-qt4`
+`sudo apt-get install python-qt4`
 
 ### Others
 

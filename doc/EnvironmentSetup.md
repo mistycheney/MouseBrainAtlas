@@ -2,9 +2,14 @@
 # Software installation
 
 ### Python packages 
+
+First install `pip`.
+Then
 `$ pip install -r requirements.txt`
 
 `requirements.txt` specifies the names and versions of all necessary Python packages.
+
+### Jupyter (iPython)
 
 ### PyQt4 (for annotation GUI)
 `sudo apt-get install python-qt4`

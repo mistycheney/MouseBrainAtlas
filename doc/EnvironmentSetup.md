@@ -16,7 +16,7 @@ To install required Python packages,
 ### Jupyter (iPython)
 `pip install jupyter`
 
-### PyQt4 (for annotation GUI)
+### PyQt4 (required for annotation GUI)
 `sudo apt-get install python-qt4`
 
 ### Others

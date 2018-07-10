@@ -11,7 +11,7 @@ It is recommended to install and use virtualenv ([guide](http://exponential.io/b
 To install required Python packages, 
 `pip install -r requirements.txt`
 
-`requirements.txt` specifies the names and versions of all packages.
+[`requirements.txt`](https://github.com/mistycheney/MouseBrainAtlas/blob/master/requirements.txt) specifies the names and versions of all packages.
 
 ### Jupyter (iPython)
 `pip install jupyter`

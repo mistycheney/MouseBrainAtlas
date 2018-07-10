@@ -1,11 +1,16 @@
 
 # Software installation
 
-`$ pip install activeatlas`
+### Python packages 
+`$ pip install -r requirements.txt`
 
-This will download the scripts and the package containing the reference anatomical model and the trained texture classifiers.
+`requirements.txt` specifies the names and versions of all necessary Python packages.
 
-Edit `global_setting.py` to specify global data path variables.
+### PyQt4 (for annotation GUI)
+`sudo apt-get install python-qt4`
+
+### Others
+
 
 # Login into servers
 

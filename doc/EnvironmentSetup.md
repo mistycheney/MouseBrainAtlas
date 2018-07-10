@@ -4,10 +4,13 @@
 ### Python packages 
 
 First install `pip`.
-Then
+
+It is recommended to install and use virtualenv ([guide](http://exponential.io/blog/2015/02/10/install-virtualenv-and-virtualenvwrapper-on-ubuntu)).
+
+To install required Python packages, 
 `$ pip install -r requirements.txt`
 
-`requirements.txt` specifies the names and versions of all necessary Python packages.
+`requirements.txt` specifies the names and versions of all packages.
 
 ### Jupyter (iPython)
 `$ pip install jupyter`

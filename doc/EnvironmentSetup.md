@@ -10,9 +10,10 @@ Then
 `requirements.txt` specifies the names and versions of all necessary Python packages.
 
 ### Jupyter (iPython)
+`$ pip install jupyter`
 
 ### PyQt4 (for annotation GUI)
-`sudo apt-get install python-qt4`
+`$ sudo apt-get install python-qt4`
 
 ### Others
 

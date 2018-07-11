@@ -8,13 +8,11 @@ It shows how one can:
 
 ## Download input data
 
-Specify the folder of the downloaded code repository `repo_dir`.
-
-Set the environment variable
+Set the environment variable to point to the folder of the downloaded code repository.
 - `export REPO_DIR=[repo_dir]`.
 
 Specify a folder `demo_data_dir` to store demo input data.
-First run `download_demo_data.py [demo_data_dir]` to download input data. 
+First run `download_demo_data.py [demo_data_dir]` to download input data into this folder.
 
 Set the environment variables which refer to a root directory that contains both input and output data.
 - `export ROOT_DIR=[demo_data_dir]`

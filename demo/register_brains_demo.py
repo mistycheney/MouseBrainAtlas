@@ -27,8 +27,8 @@ parser = argparse.ArgumentParser(
 
 parser.add_argument("fixed_brain_spec", type=str, help="Fixed brain specification, json")
 parser.add_argument("moving_brain_spec", type=str, help="Moving brain specification, json")
-parser.add_argument("registration_setting", type=int, help="Registration setting, int, defined in registration_settings.csv")
-parser.add_argument("-g", "--use_simple_global", action='store_true', help="Set this flag to initialize with simple global registration")
+parser.add_argument("-r", "--registration_setting", type=int, help="Registration setting, int, defined in registration_settings.csv", default=7)
+parser.add_argument("-g", "--use_simple_global", action='store_false', help="Set this flag to NOT initialize with simple global registration")
 # parser.add_argument("--out_dir", type=str, help="Output directory")
 args = parser.parse_args()
 

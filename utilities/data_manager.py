@@ -1073,7 +1073,7 @@ class DataManager(object):
     @staticmethod
     def load_anchor_filename(stack):
         fp = DataManager.get_anchor_filename_filename(stack)
-        download_from_s3(fp, local_root=THUMBNAIL_DATA_ROOTDIR)
+        # download_from_s3(fp, local_root=THUMBNAIL_DATA_ROOTDIR)
         anchor_fn = DataManager.load_data(fp, filetype='anchor')
         return anchor_fn
 
@@ -1255,7 +1255,7 @@ class DataManager(object):
         else:
             raise Exception("prep_id %s must be either str or int" % prep_id)
 
-        download_from_s3(fp, local_root=THUMBNAIL_DATA_ROOTDIR)
+        # download_from_s3(fp, local_root=THUMBNAIL_DATA_ROOTDIR)
 
         if fp.endswith('.txt'):
             xmin, xmax, ymin, ymax, secmin, secmax = load_data(fp).astype(np.int)
@@ -1337,7 +1337,7 @@ class DataManager(object):
         """
 
         fp = DataManager.get_cropbox_filename(stack=stack, anchor_fn=anchor_fn, prep_id=prep_id)
-        download_from_s3(fp, local_root=THUMBNAIL_DATA_ROOTDIR)
+        # download_from_s3(fp, local_root=THUMBNAIL_DATA_ROOTDIR)
 
         if convert_section_to_z:
             xmin, xmax, ymin, ymax, secmin, secmax = np.loadtxt(fp).astype(np.int)
@@ -1390,7 +1390,7 @@ class DataManager(object):
         if fp is None:
             fp = DataManager.get_sorted_filenames_filename(stack)
 
-        download_from_s3(fp, local_root=THUMBNAIL_DATA_ROOTDIR, redownload=redownload)
+        # download_from_s3(fp, local_root=THUMBNAIL_DATA_ROOTDIR, redownload=redownload)
         filename_to_section, section_to_filename = DataManager.load_data(fp, filetype='file_section_map')
         if 'Placeholder' in filename_to_section:
             filename_to_section.pop('Placeholder')
@@ -1528,7 +1528,7 @@ class DataManager(object):
             resolution = 'down%d' % downsample_factor
 
         fp = DataManager.get_transforms_filename(stack, anchor_fn=anchor_fn)
-        download_from_s3(fp, local_root=THUMBNAIL_DATA_ROOTDIR)
+        # download_from_s3(fp, local_root=THUMBNAIL_DATA_ROOTDIR)
         Ts_down32 = DataManager.load_data(fp, filetype='pickle')
 
         if use_inverse:
@@ -1729,7 +1729,7 @@ class DataManager(object):
         """
         params_fp = DataManager.get_alignment_parameters_filepath(**locals())
         # download_from_s3(params_fp, redownload=True)
-        download_from_s3(params_fp, redownload=False)
+        # download_from_s3(params_fp, redownload=False)
         return DataManager.load_data(params_fp, 'transform_params')
 
     # @staticmethod
@@ -1873,7 +1873,7 @@ class DataManager(object):
     classifier_setting_m=None, classifier_setting_f=None,
     type_f='score', type_m='score', downscale=32, param_suffix=None):
         fp = DataManager.get_best_trial_index_filepath(**locals())
-        download_from_s3(fp)
+        # download_from_s3(fp)
         with open(fp, 'r') as f:
             best_trial_index = int(f.readline())
         return best_trial_index
@@ -1924,7 +1924,7 @@ class DataManager(object):
                             type_m='score', type_f='score',
                             trial_idx=None):
         fp = DataManager.get_confidence_filepath(**locals())
-        download_from_s3(fp)
+        # download_from_s3(fp)
         return load_pickle(fp)
 
     @staticmethod
@@ -1981,7 +1981,7 @@ class DataManager(object):
         clf_allClasses = {}
         for structure in structures:
             clf_fp = DataManager.get_classifier_filepath(structure=structure, classifier_id=classifier_id)
-            download_from_s3(clf_fp)
+            # download_from_s3(clf_fp)
             if os.path.exists(clf_fp):
                 clf_allClasses[structure] = joblib.load(clf_fp)
             else:
@@ -2010,7 +2010,7 @@ class DataManager(object):
             fn = metadata_cache['sections_to_filenames'][stack][sec]
 
         sparse_scores_fp = DataManager.get_sparse_scores_filepath(**locals())
-        download_from_s3(sparse_scores_fp)
+        # download_from_s3(sparse_scores_fp)
         return DataManager.load_data(sparse_scores_fp, filetype='bp')
 
     @staticmethod
@@ -2047,7 +2047,7 @@ class DataManager(object):
         v2 adds argument `prep_id`.
         """
         fn = DataManager.get_intensity_volume_filepath_v2(stack=stack, downscale=downscale, prep_id=prep_id)
-        download_from_s3(fn)
+        # download_from_s3(fn)
         return DataManager.load_data(fn, filetype='bp')
 
     @staticmethod
@@ -2058,7 +2058,7 @@ class DataManager(object):
         """
 
         fn = DataManager.get_intensity_volume_filepath_v2(stack=stack, prep_id=prep_id, downscale=downscale)
-        download_from_s3(fn)
+        # download_from_s3(fn)
         vol = DataManager.load_data(fn, filetype='bp')
 
         bbox_fp = DataManager.get_intensity_volume_bbox_filepath_v2(stack=stack, prep_id=prep_id, downscale=downscale)
@@ -2132,7 +2132,7 @@ class DataManager(object):
     @staticmethod
     def load_annotation_volume(stack, downscale):
         fp = DataManager.get_annotation_volume_filepath(**locals())
-        download_from_s3(fp)
+        # download_from_s3(fp)
         return DataManager.load_data(fp, filetype='bp')
 
     @staticmethod
@@ -2156,7 +2156,7 @@ class DataManager(object):
     @staticmethod
     def load_annotation_volume_label_to_name(stack):
         fn = DataManager.get_annotation_volume_label_to_name_filepath(stack)
-        download_from_s3(fn)
+        # download_from_s3(fn)
         label_to_name, name_to_label = DataManager.load_data(fn, filetype='label_name_map')
         return label_to_name, name_to_label
 
@@ -2561,7 +2561,7 @@ class DataManager(object):
                                 downscale=32,
                                 trial_idx=None):
         fp = DataManager.get_transformed_volume_filepath(**locals())
-        download_from_s3(fp)
+        # download_from_s3(fp)
         return DataManager.load_data(fp, filetype='bp')
 
 
@@ -3073,11 +3073,11 @@ class DataManager(object):
         for structure in structures:
             try:
                 vol_fp = DataManager.get_prob_shape_volume_filepath(structure=structure, **kwargs)
-                download_from_s3(vol_fp)
+                # download_from_s3(vol_fp)
                 vol = bp.unpack_ndarray_file(vol_fp)
 
                 origin_fp = DataManager.get_prob_shape_origin_filepath(structure=structure, **kwargs)
-                download_from_s3(origin_fp)
+                # download_from_s3(origin_fp)
                 origin = np.loadtxt(origin_fp)
 
                 prob_shapes[structure] = (vol, origin)
@@ -3794,7 +3794,7 @@ class DataManager(object):
         """
 
         vol_fp = DataManager.get_original_volume_filepath_v2(stack_spec=stack_spec, structure=structure, resolution=resolution)
-        download_from_s3(vol_fp, is_dir=False)
+        # download_from_s3(vol_fp, is_dir=False)
         volume = DataManager.load_data(vol_fp, filetype='bp')
 
         # bbox_fp = DataManager.get_original_volume_bbox_filepath_v2(stack_spec=stack_spec, structure=structure,
@@ -3863,7 +3863,7 @@ class DataManager(object):
         """
 
         bbox_fp = DataManager.get_original_volume_bbox_filepath(**locals())
-        download_from_s3(bbox_fp)
+        # download_from_s3(bbox_fp)
         volume_bbox_wrt_wholebrainXYcropped = DataManager.load_data(bbox_fp, filetype='bbox')
         # for volume type "score" or "thumbnail", bbox of the loaded volume wrt "wholebrainXYcropped".
         # for volume type "annotationAsScore", bbox on file is wrt wholebrain.
@@ -4040,7 +4040,7 @@ class DataManager(object):
             out_resolution (str): e.g. 10.0um or down32
         """
         viz_fp = DataManager.get_scoremap_viz_filepath_v2(**locals())
-        download_from_s3(viz_fp)
+        # download_from_s3(viz_fp)
         viz = imread(viz_fp)
         return viz
 
@@ -4084,7 +4084,7 @@ class DataManager(object):
         """
 
         scoremap_bp_filepath = DataManager.get_downscaled_scoremap_filepath(**locals())
-        download_from_s3(scoremap_bp_filepath)
+        # download_from_s3(scoremap_bp_filepath)
 
         if not os.path.exists(scoremap_bp_filepath):
             raise Exception('No scoremap for image %s (section %d) for label %s\n' % \
@@ -4333,7 +4333,7 @@ class DataManager(object):
         features_fp = DataManager.get_dnn_features_filepath_v2(stack=stack, sec=sec, fn=fn, prep_id=prep_id, win_id=win_id,
                               normalization_scheme=normalization_scheme,
                                              model_name=model_name, what='features')
-        download_from_s3(features_fp, local_root=DATA_ROOTDIR)
+        # download_from_s3(features_fp, local_root=DATA_ROOTDIR)
         if not os.path.exists(features_fp):
             raise Exception("Features for %s, %s/%s does not exist." % (stack, sec, fn))
 
@@ -4342,7 +4342,7 @@ class DataManager(object):
         locations_fp = DataManager.get_dnn_features_filepath_v2(stack=stack, sec=sec, fn=fn, prep_id=prep_id, win_id=win_id,
                               normalization_scheme=normalization_scheme,
                                              model_name=model_name, what='locations')
-        download_from_s3(locations_fp)
+        # download_from_s3(locations_fp)
         locations = np.loadtxt(locations_fp).astype(np.int)
 
         return features, locations
@@ -4568,10 +4568,10 @@ class DataManager(object):
 
         if not os.path.exists(img_fp):
             sys.stderr.write('File not on local disk. Download from S3.\n')
-            if resol == 'lossless' or resol == 'raw' or resol == 'down8':
-                download_from_s3(img_fp, local_root=DATA_ROOTDIR)
-            else:
-                download_from_s3(img_fp, local_root=THUMBNAIL_DATA_ROOTDIR)
+            # if resol == 'lossless' or resol == 'raw' or resol == 'down8':
+            #     download_from_s3(img_fp, local_root=DATA_ROOTDIR)
+            # else:
+            #     download_from_s3(img_fp, local_root=THUMBNAIL_DATA_ROOTDIR)
 
         global use_image_cache
         if use_image_cache:
@@ -4695,13 +4695,13 @@ class DataManager(object):
     @staticmethod
     def load_image(stack, version, resol='lossless', section=None, fn=None, anchor_fn=None, modality=None, data_dir=DATA_DIR, ext=None):
         img_fp = DataManager.get_image_filepath(**locals())
-        download_from_s3(img_fp)
+        # download_from_s3(img_fp)
         return imread(img_fp)
 
     @staticmethod
     def get_image_filepath_v2(stack, prep_id, version=None, resol='raw',
                            data_dir=DATA_DIR, raw_data_dir=RAW_DATA_DIR, thumbnail_data_dir=THUMBNAIL_DATA_DIR,
-                           section=None, fn=None, ext=None):
+                           section=None, fn=None, ext=None, sorted_filenames_fp=None):
         """
         Args:
             version (str): the version string.
@@ -4718,7 +4718,13 @@ class DataManager(object):
                 resol = 'lossless'
 
         if section is not None:
-            fn = metadata_cache['sections_to_filenames'][stack][section]
+            
+            if sorted_filenames_fp is not None:
+                _, sections_to_filenames = DataManager.load_sorted_filenames(fp=sorted_filenames_fp)                
+                fn = sections_to_filenames[section]
+            else:
+                fn = metadata_cache['sections_to_filenames'][stack][section]
+                
             if is_invalid(fn=fn):
                 raise Exception('Section is invalid: %s.' % fn)
         else:
@@ -5086,7 +5092,7 @@ class DataManager(object):
 
         try:
             fp = DataManager.get_thumbnail_mask_filename_v3(stack=stack, section=section, fn=fn, prep_id=prep_id)
-            download_from_s3(fp, local_root=THUMBNAIL_DATA_ROOTDIR)
+            # download_from_s3(fp, local_root=THUMBNAIL_DATA_ROOTDIR)
             mask = imread(fp).astype(np.bool)
             return mask
         except:
@@ -5100,7 +5106,7 @@ class DataManager(object):
                 try:
                     sys.stderr.write('Try finding prep5 masks.\n')
                     fp = DataManager.get_thumbnail_mask_filename_v3(stack=stack, section=section, fn=fn, prep_id=5)
-                    download_from_s3(fp, local_root=THUMBNAIL_DATA_ROOTDIR)
+                    # download_from_s3(fp, local_root=THUMBNAIL_DATA_ROOTDIR)
                     mask_prep5 = imread(fp).astype(np.bool)
 
                     xmin,xmax,ymin,ymax = DataManager.load_cropbox_v2_relative(stack=stack, prep_id=prep_id, wrt_prep_id=5, out_resolution='down32')
@@ -5111,7 +5117,7 @@ class DataManager(object):
                     sys.stderr.write('Cannot load mask %s, section=%s, fn=%s, prep=%s\n' % (stack, section, fn, prep_id))
                     sys.stderr.write('Try finding prep1 masks.\n')
                     fp = DataManager.get_thumbnail_mask_filename_v3(stack=stack, section=section, fn=fn, prep_id=1)
-                    download_from_s3(fp, local_root=THUMBNAIL_DATA_ROOTDIR)
+                    # download_from_s3(fp, local_root=THUMBNAIL_DATA_ROOTDIR)
                     mask_prep1 = imread(fp).astype(np.bool)
 
                     xmin,xmax,ymin,ymax = DataManager.load_cropbox_v2(stack=stack, prep_id=prep_id, return_dict=False, only_2d=True)
@@ -5220,7 +5226,7 @@ class DataManager(object):
             (n,224,224)-array: patches
         """
         fp = DataManager.get_dataset_patches_filepath(dataset_id=dataset_id, structure=structure)
-        download_from_s3(fp, local_root=os.path.dirname(CLF_ROOTDIR))
+        # download_from_s3(fp, local_root=os.path.dirname(CLF_ROOTDIR))
         return bp.unpack_ndarray_file(fp)
 
     @staticmethod
@@ -5234,7 +5240,7 @@ class DataManager(object):
     @staticmethod
     def load_dataset_features(dataset_id, structure=None):
         fp = DataManager.get_dataset_features_filepath(dataset_id=dataset_id, structure=structure)
-        download_from_s3(fp, local_root=os.path.dirname(CLF_ROOTDIR))
+        # download_from_s3(fp, local_root=os.path.dirname(CLF_ROOTDIR))
         return bp.unpack_ndarray_file(fp)
 
     @staticmethod
@@ -5248,7 +5254,7 @@ class DataManager(object):
     @staticmethod
     def load_dataset_addresses(dataset_id, structure=None):
         fp = DataManager.get_dataset_addresses_filepath(dataset_id=dataset_id, structure=structure)
-        download_from_s3(fp, local_root=os.path.dirname(CLF_ROOTDIR))
+        # download_from_s3(fp, local_root=os.path.dirname(CLF_ROOTDIR))
         return load_pickle(fp)
 
     @staticmethod
@@ -5270,7 +5276,7 @@ class DataManager(object):
     @staticmethod
     def load_labeled_neurons_filepath(stack, sec=None, fn=None):
         fp = DataManager.get_labeled_neurons_filepath(**locals())
-        download_from_s3(fp)
+        # download_from_s3(fp)
         return load_pickle(fp)
 
     @staticmethod
@@ -5365,7 +5371,8 @@ def download_all_metadata():
         except:
             pass
 
-download_all_metadata()
+# Temporarily commented out
+# download_all_metadata()
 
 # This module stores any meta information that is dynamic.
 metadata_cache = {}
@@ -5428,6 +5435,8 @@ def generate_metadata_cache():
             metadata_cache['image_shape'][stack] = DataManager.get_image_dimension(stack)
         except:
             pass
+        
+    return metadata_cache
 
 
 generate_metadata_cache()

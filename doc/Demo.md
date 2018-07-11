@@ -8,15 +8,15 @@ It shows how one can:
 
 ## Download input data
 
-Set the environment variable that points to the folder of the downloaded code repository.
+Specify the folder of the downloaded code repository `repo_dir`.
+
+Set the environment variable
 - `export REPO_DIR=[repo_dir]`.
 
-First run `download_demo_data.py [demo_data_dir]` to download input data. `[demo_data_dir]` is a folder specified by the user to store demo input data. Make sure the following files are downloaded:
-  - `CSHL_volumes/DEMO999/DEMO999_detector799_10.0um_scoreVolume/score_volumes/*`
-  - `CSHL_volumes/atlasV7/score_volumes/*`
-  - `CSHL_simple_global_registration/DEMO999_T_atlas_wrt_canonicalAtlasSpace_subject_wrt_wholebrain_atlasResol.bp`
+Specify a folder `demo_data_dir` to store demo input data.
+First run `download_demo_data.py [demo_data_dir]` to download input data. 
 
-Set the environment variables that point to a root directory for both input and output data.
+Set the environment variables which refer to a root directory that stores both input and output data.
 - `export ROOT_DIR=[demo_data_dir]`
 - `export DATA_ROOTDIR=[demo_data_dir]`
 

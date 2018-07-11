@@ -2146,19 +2146,19 @@ def R_align_two_vectors(a, b):
 
 def average_location(centroid_allLandmarks_wrt_fixedBrain=None, mean_centroid_allLandmarks_wrt_fixedBrain=None):
     """
-    Compute the standard centroid of every structure.
+    Compute the standardized centroid of every structure.
 
     This first estimates the mid-sagittal plane.
-    Then find a standard centroid for each structure, that is closest to the mean and also being symmetric with respect to mid-sagittal plane.
+    Then find a standardized centroid for every structure, that is both closest to the population mean location and symmetric with respect to the mid-sagittal plane.
 
     Args:
         centroid_allLandmarks_wrt_fixedBrain (dict {str: (n,3)-array}): centroid of every structure instance wrt fixed brain
         mean_centroid_allLandmarks (dict {str: (3,)-array}): mean centroid of every structure instance wrt fixed brain
 
     Returns:
-        standard_centroids_wrt_canonical: average locations of every structure, relative to the midplane anchor. Paired structures are symmetric relative to the mid-plane defined by centroid and normal.
+        standard_centroids_wrt_canonical: standardized locations of every structure, relative to the midplane anchor. Paired structures are symmetric relative to the mid-plane defined by centroid and normal.
         instance_centroids_wrt_canonical: the instance centroids in canonical atlas space
-        midplane_anchor: a point on the mid-sagittal plane
+        midplane_anchor_wrt_fixedBrain: a point on the mid-sagittal plane that is used as the origin of canonical atlas space.
         midplane_normal: normal vector of the mid-sagittal plane estimated from centroids in original coordinates. Note that this is NOT the mid-plane normal using canonical coordinates, which by design should be (0,0,1).
         transform_matrix_to_atlasCanonicalSpace: (4,4) matrix that maps to canonical atlas space
         """

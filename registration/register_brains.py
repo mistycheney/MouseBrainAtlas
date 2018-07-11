@@ -23,11 +23,11 @@ import argparse
 
 parser = argparse.ArgumentParser(
     formatter_class=argparse.RawDescriptionHelpFormatter,
-    description='')
+    description='This script computes the transform matrices and generate the transformed moving brain volumes.')
 
-parser.add_argument("fixed_brain_spec", type=str, help="Fixed brain name")
-parser.add_argument("moving_brain_spec", type=str, help="Moving brain name")
-parser.add_argument("registration_setting", type=int, help="Registration setting")
+parser.add_argument("fixed_brain_spec", type=str, help="Fixed brain specification, json")
+parser.add_argument("moving_brain_spec", type=str, help="Moving brain specification, json")
+parser.add_argument("registration_setting", type=int, help="Registration setting, int, defined in registration_settings.csv")
 parser.add_argument("-g", "--use_simple_global", action='store_true', help="Set this flag to initialize with simple global registration")
 # parser.add_argument("--out_dir", type=str, help="Output directory")
 args = parser.parse_args()
@@ -79,7 +79,7 @@ aligner.set_label_weights(label_weights=aligner_parameters['label_weights_m'])
 ################################
 
 if use_simple_global:
-    T_atlas_wrt_canonicalAtlasSpace_subject_wrt_wholebrain_atlasResol = bp.unpack_ndarray_file('/home/yuncong/' + brain_f_spec['name'] + '_T_atlas_wrt_canonicalAtlasSpace_subject_wrt_wholebrain_atlasResol.bp')
+    T_atlas_wrt_canonicalAtlasSpace_subject_wrt_wholebrain_atlasResol = bp.unpack_ndarray_file('/home/yuncong/CSHL_simple_global_registration/' + brain_f_spec['name'] + '_T_atlas_wrt_canonicalAtlasSpace_subject_wrt_wholebrain_atlasResol.bp')
     aligner.set_initial_transform(T_atlas_wrt_canonicalAtlasSpace_subject_wrt_wholebrain_atlasResol)
     aligner.set_centroid(centroid_m='structure_centroid', centroid_f='centroid_m')
 else:
@@ -126,12 +126,10 @@ tf_atlas_to_subj = compose_alignment_parameters([init_T, convert_transform_forms
 
 print tf_atlas_to_subj
 
-
 DataManager.save_alignment_results_v3(transform_parameters=convert_transform_forms(transform=tf_atlas_to_subj, out_form='dict'),
                    score_traj=aligner.scores,
                    parameter_traj=aligner.Ts,
                   alignment_spec=alignment_spec)
-
 
 # Transform moving structures. Save transformed version.
 

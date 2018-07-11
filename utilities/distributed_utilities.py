@@ -293,7 +293,7 @@ def run_distributed5(command, argument_type='single', kwargs_list=None, jobs_per
 
     for node_i, (fi, li) in enumerate(first_last_tuples_distribute_over(0, len(kwargs_list_as_list)-1, n_hosts)):
 
-        temp_script = '/tmp/runall.sh'
+        temp_script = '/home/yuncong/runall.sh'
         temp_f = open(temp_script, 'w')
 
         for j, (fj, lj) in enumerate(first_last_tuples_distribute_over(fi, li, jobs_per_node)):

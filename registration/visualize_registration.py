@@ -113,7 +113,7 @@ import argparse
 
 parser = argparse.ArgumentParser(
     formatter_class=argparse.RawDescriptionHelpFormatter,
-    description='')
+    description='Generate images with aligned atlas structures overlaid.')
 
 parser.add_argument("fixed_brain_spec", type=str, help="Fixed brain name")
 parser.add_argument("moving_brain_spec", type=str, help="Moving brain name")
@@ -185,7 +185,7 @@ for structure_m in structure_list:
                                                structure=structure_m)
 
     registered_atlas_structures_wrt_wholebrainXYcropped_xysecTwoCorners = \
-    load_json('/home/yuncong/' + stack + '_registered_atlas_structures_wrt_wholebrainXYcropped_xysecTwoCorners.json')
+    load_json('/home/yuncong/CSHL_simple_global_registration/' + stack + '_registered_atlas_structures_wrt_wholebrainXYcropped_xysecTwoCorners.json')
 
     (_, _, secmin), (_, _, secmax) = registered_atlas_structures_wrt_wholebrainXYcropped_xysecTwoCorners[structure_m]
 
@@ -243,34 +243,41 @@ for sec, contours_all_structures_all_levels in sorted(auto_contours_all_sec_all_
     for version in ['NtbNormalizedAdaptiveInvertedGammaJpeg']:
 #         for version in ['grayJpeg']:
 #         for version in ['NtbNormalizedAdaptiveInvertedGammaJpeg', 'CHATJpeg']:
+        
+        try:
+            img = DataManager.load_image_v2(stack=stack, prep_id=2, resol='raw', version=version, section=sec)
 
-        img = DataManager.load_image_v2(stack=stack, prep_id=2, resol='raw', version=version, section=sec)
-        viz = gray2rgb(img)
+            viz = gray2rgb(img)
 
-        for name_s, cnt_all_levels in contours_all_structures_all_levels.iteritems():
+            # Draw the locally aligned structure contours in COLOR
+            for name_s, cnt_all_levels in contours_all_structures_all_levels.iteritems():
 
-            for level, cnt in cnt_all_levels.iteritems():
-                cv2.polylines(viz, [cnt.astype(np.int)], isClosed=True, 
-                              color=LEVEL_TO_COLOR_LINE[level], thickness=10)
+                for level, cnt in cnt_all_levels.iteritems():
+                    cv2.polylines(viz, [cnt.astype(np.int)], isClosed=True, 
+                                  color=LEVEL_TO_COLOR_LINE[level], thickness=10)
+            
+            # Draw the simple globally aligned structure contours in WHITE
+            for name_s, cnt_all_levels in simpleGlobal_contours_all_sections_all_structures_all_levels[sec].iteritems():
 
-        for name_s, cnt_all_levels in simpleGlobal_contours_all_sections_all_structures_all_levels[sec].iteritems():
+                for level, cnt in cnt_all_levels.iteritems():
+                    cv2.polylines(viz, [cnt.astype(np.int)], isClosed=True, 
+                                  color=(255,255,255), 
+                                  thickness=10)
 
-            for level, cnt in cnt_all_levels.iteritems():
-                cv2.polylines(viz, [cnt.astype(np.int)], isClosed=True, 
-                              color=(255,255,255), 
-                              thickness=10)
+    # #             # Add CHAT contour
+    #             if sec in chat_contours_all_sections_all_structures_all_levels:
+    #                 chat_cnt = chat_contours_all_sections_all_structures_all_levels[sec][name_s][.5]
+    #                 cv2.polylines(viz, [chat_cnt.astype(np.int)], isClosed=True, color=(255,255,255), thickness=20)
 
-# #             # Add CHAT contour
-#             if sec in chat_contours_all_sections_all_structures_all_levels:
-#                 chat_cnt = chat_contours_all_sections_all_structures_all_levels[sec][name_s][.5]
-#                 cv2.polylines(viz, [chat_cnt.astype(np.int)], isClosed=True, color=(255,255,255), thickness=20)
+    #             fp = os.path.join('/home/yuncong/' + stack + '_atlas_aligned_multilevel_all_structures', version, stack + '_' + version + '_' + ('%03d' % sec) + '.jpg')
+    #             print fp
+    #             create_parent_dir_if_not_exists(fp)
+    #             imsave(fp, viz)
 
-#             fp = os.path.join('/home/yuncong/' + stack + '_atlas_aligned_multilevel_all_structures', version, stack + '_' + version + '_' + ('%03d' % sec) + '.jpg')
-#             print fp
-#             create_parent_dir_if_not_exists(fp)
-#             imsave(fp, viz)
-
-        fp = os.path.join('/home/yuncong/' + stack + '_atlas_aligned_multilevel_down16_all_structures', version, stack + '_' + version + '_' + ('%03d' % sec) + '.jpg')
-        print fp
-        create_parent_dir_if_not_exists(fp)
-        imsave(fp, viz[::16, ::16])
+            fp = os.path.join('/home/yuncong/CSHL_registration_visualization/' + stack + '_atlas_aligned_multilevel_down16_all_structures', version, stack + '_' + version + '_' + ('%03d' % sec) + '.jpg')
+            create_parent_dir_if_not_exists(fp)
+            imsave(fp, viz[::16, ::16])
+            upload_to_s3(fp)
+            
+        except:
+            pass

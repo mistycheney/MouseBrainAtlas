@@ -4709,7 +4709,7 @@ class DataManager(object):
             if stack == 'CHATM2' or stack == 'CHATM3':
                 resol = 'raw'
         elif resol == 'raw':
-            if stack not in ['CHATM2', 'CHATM3']:
+            if stack not in ['CHATM2', 'CHATM3', 'MD661', 'DEMO999']:
                 resol = 'lossless'
 
         if section is not None:

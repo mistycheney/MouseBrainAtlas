@@ -50,7 +50,7 @@ Run `registration/register_brain.py <fixed_brain_spec_json> <moving_brain_spec_j
 
 Generated registration results are stored at
 `CSHL_registration_parameters/<atlas_name>/<atlas_name>_10.0um_scoreVolume_<moving_structures>_warp<registration_id>_<fixed_brain>_detector<detector_id>_10.0um_scoreVolume_<fixed_structures>`.
-Also see [Explanation of registration results](DataDescription.md)
+Also see [Explanation of registration results](DataDescription.md#registration-results)
 
 Transformed moving structures (including the corresponding surround structures) are stored at 
 `CSHL_volumes/<atlas_name>/<moving_brain_spec>_warp<registration_setting_id>_<fixed_brain_spec>/score_volumes/`

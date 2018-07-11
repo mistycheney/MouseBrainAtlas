@@ -40,7 +40,7 @@ Each setting specifies the following parameters:
 
 # Global registration
 
-The early version of system uses the detection maps of all structures to compute a global registration.
+The early version of system uses the texture detection maps of all structures to compute a global registration.
 Since it is not well defined how one can evaluate global registration, this only needs to be a very crude registration.
 In the latest version this stage is simply done by aligning two manually chosen landmark points. In the future this can be achieved by aligning the brain outlines.
 

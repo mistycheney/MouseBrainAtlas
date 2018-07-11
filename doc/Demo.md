@@ -7,16 +7,16 @@ It shows how one can:
 ---------------------------
 
 ## Download input data
-First run `download_demo_data.py` to download input data. Input data will be downloaded in _demo_data_ folder. Make sure the following files are available
+First run `download_demo_data.py [demo_data_dir]` to download input data. Input data will be downloaded in `[demo_data_dir]`. Make sure the following files are available
   - `CSHL_volumes/DEMO999/DEMO999_detector799_10.0um_scoreVolume/score_volumes/*`
   - `CSHL_volumes/atlasV7/score_volumes/*`
   - `CSHL_simple_global_registration/DEMO999_T_atlas_wrt_canonicalAtlasSpace_subject_wrt_wholebrain_atlasResol.bp`
 
 ## Register 12N individually
-- `$ ROOT_DIR=/home/yuncong/Brain/demo_data/ DATA_ROOTDIR=/home/yuncong/Brain/demo_data/  ./register_brains_demo.py demo_fixed_brain_spec_12N.json demo_moving_brain_spec_12N.json 7 -g`
+- `$ ROOT_DIR=[demo_data_dir] DATA_ROOTDIR=[demo_data_dir]  ./register_brains_demo.py demo_fixed_brain_spec_12N.json demo_moving_brain_spec_12N.json 7 -g`
 
 ## Register 3N_R and 4N_R as a group
-- `$ ROOT_DIR=/home/yuncong/Brain/demo_data/ DATA_ROOTDIR=/home/yuncong/Brain/demo_data/  ./register_brains_demo.py demo_fixed_brain_spec_3N_R_4N_R.json demo_moving_brain_spec_3N_R_4N_R.json 7 -g`
+- `$ ROOT_DIR=[demo_data_dir] DATA_ROOTDIR=[demo_data_dir]  ./register_brains_demo.py demo_fixed_brain_spec_3N_R_4N_R.json demo_moving_brain_spec_3N_R_4N_R.json 7 -g`
 
 The program should finish in 2 minutes.
 
@@ -47,7 +47,7 @@ The outputs are also generated in _demo_data_ folder under the following paths. 
 To visualize the multi-probability level structures of the aligned atlas overlaid on original images:
 - make sure the following image files are available:
   - `CSHL_data_processed/DEMO999/DEMO999_prep2_raw_NtbNormalizedAdaptiveInvertedGammaJpeg/[imgName]\_prep2_raw_NtbNormalizedAdaptiveInvertedGammaJpeg.jpg`
-- `$ ROOT_DIR=/home/yuncong/Brain/demo_data/ DATA_ROOTDIR=/home/yuncong/Brain/demo_data/ ./visualize_registration_demo.py demo_visualization_per_structure_alignment_spec.json -g demo_visualization_global_alignment_spec.json`
+- `$ ROOT_DIR=[demo_data_dir] DATA_ROOTDIR=[demo_data_dir] ./visualize_registration_demo.py demo_visualization_per_structure_alignment_spec.json -g demo_visualization_global_alignment_spec.json`
 
 The outputs are the following:
 

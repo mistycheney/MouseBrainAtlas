@@ -21,10 +21,10 @@ Set environment variables
 - `export DATA_ROOTDIR=[demo_data_dir]`
 
 ## Register 12N individually
-- `$ ./register_brains_demo.py demo_fixed_brain_spec_12N.json demo_moving_brain_spec_12N.json -g`
+- `$ ./register_brains_demo.py demo_fixed_brain_spec_12N.json demo_moving_brain_spec_12N.json`
 
 ## Register 3N_R and 4N_R as a group
-- `$ ./register_brains_demo.py demo_fixed_brain_spec_3N_R_4N_R.json demo_moving_brain_spec_3N_R_4N_R.json -g`
+- `$ ./register_brains_demo.py demo_fixed_brain_spec_3N_R_4N_R.json demo_moving_brain_spec_3N_R_4N_R.json`
 
 The program should finish in 2 minutes.
 

@@ -51,8 +51,6 @@ The outputs are also generated in _demo_data_ folder under the following paths. 
 ## Visualize registration results
 
 To visualize the multi-probability level structures of the aligned atlas overlaid on original images:
-- make sure the following image files are available:
-  - `CSHL_data_processed/DEMO999/DEMO999_prep2_raw_NtbNormalizedAdaptiveInvertedGammaJpeg/[imgName]\_prep2_raw_NtbNormalizedAdaptiveInvertedGammaJpeg.jpg`
 - `$ ./visualize_registration_demo.py demo_visualization_per_structure_alignment_spec.json -g demo_visualization_global_alignment_spec.json`
 
 The outputs are the following:

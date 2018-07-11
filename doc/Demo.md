@@ -33,7 +33,7 @@ The expected outputs are listed below. You can download them from our S3 bucket 
 
 To visualize the multi-level structures of the atlas overlaid on original images:
 - make sure the following image files are available:
-  - CSHL_data_processed/DEMO999/DEMO999_prep2_raw_NtbNormalizedAdaptiveInvertedGammaJpeg/<imgName>_prep2_raw_NtbNormalizedAdaptiveInvertedGammaJpeg.jpg
+  - CSHL_data_processed/DEMO999/DEMO999_prep2_raw_NtbNormalizedAdaptiveInvertedGammaJpeg/[imgName]\_prep2_raw_NtbNormalizedAdaptiveInvertedGammaJpeg.jpg
 - `$ registration/visualize_registration.py demo_fixed_brain_spec.json demo_moving_brain_spec.json 7 --structure_list "[\"3N_R\", \"4N_R\"]"`
 
 **Atlas-overlaid images**

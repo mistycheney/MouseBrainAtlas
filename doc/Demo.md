@@ -17,6 +17,7 @@ First run `download_demo_data.py [demo_data_dir]` to download input data into th
 Set the environment variables which refer to a root directory that contains both input and output data.
 - `export ROOT_DIR=[demo_data_dir]`
 - `export DATA_ROOTDIR=[demo_data_dir]`
+- `export THUMBNAIL_DATA_ROOTDIR=[demo_data_dir]`
 
 ## Register 12N individually
 - `$ ./register_brains_demo.py demo_fixed_brain_spec_12N.json demo_moving_brain_spec_12N.json`

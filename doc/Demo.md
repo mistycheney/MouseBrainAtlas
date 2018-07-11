@@ -1,4 +1,4 @@
-This demo assumes a subject brain (DEMO999) is roughly globlly aligned with the atlas (atlasV7).
+This demo assumes a subject brain (DEMO999) is roughly globally aligned with the atlas (atlasV7).
 It performs local registration separately for 20 structures.
 And then registers 3N_R and 4N_R as a group.
 

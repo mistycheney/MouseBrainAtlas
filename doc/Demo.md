@@ -7,7 +7,7 @@ To run the registration demo,
   - `CSHL_simple_global_registration/DEMO999_T_atlas_wrt_canonicalAtlasSpace_subject_wrt_wholebrain_atlasResol.bp`
 - `$ registration/register_brains.py demo_fixed_brain_spec.json demo_moving_brain_spec.json 7`
 
-The demo is expected to finish in 2 minutes.
+The program is expected to finish in 2 minutes.
 
 The expected output include:
 

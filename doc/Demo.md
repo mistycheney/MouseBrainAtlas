@@ -2,6 +2,7 @@ This demo assumes a subject brain (DEMO999) is roughly globally aligned with the
 It shows how one can:
 - register 7N_L (facial motor nucleus) individually.
 - register 3N_R and 4N_R as a group.
+- visualize the aligned atlas overlaid on original images
 
 ---------------------------
 
@@ -46,7 +47,7 @@ The outputs are also generated in _demo_data_ folder under the following paths. 
 To visualize the multi-probability level structures of the aligned atlas overlaid on original images:
 - make sure the following image files are available:
   - `CSHL_data_processed/DEMO999/DEMO999_prep2_raw_NtbNormalizedAdaptiveInvertedGammaJpeg/[imgName]\_prep2_raw_NtbNormalizedAdaptiveInvertedGammaJpeg.jpg`
-- `$ ROOT_DIR=/home/yuncong/Brain/demo_data/ DATA_ROOTDIR=/home/yuncong/Brain/demo_data/ ./visualize_registration_demo.py demo_fixed_brain_spec.json demo_moving_brain_spec.json 7 --structure_list  "[\"3N_R\", \"4N_R\"]"`
+- `$ ROOT_DIR=/home/yuncong/Brain/demo_data/ DATA_ROOTDIR=/home/yuncong/Brain/demo_data/ ./visualize_registration_demo.py demo_visualization_per_structure_alignment_spec.json -g demo_visualization_global_alignment_spec.json`
 
 The outputs are the following:
 

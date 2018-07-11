@@ -1,4 +1,10 @@
-To run the registration demo, 
+This demo assumes a subject brain (DEMO999) is roughly globlly aligned with the atlas (atlasV7).
+It performs local registration separately for 20 structures.
+And then registers 3N_R and 4N_R as a group.
+
+---------------------------
+
+To run the demo, 
 - Run `download_demo_data.py`. Input files will be downloaded in _demo_data_ folder. Make sure the following files are available
   - `CSHL_volumes/DEMO999/DEMO999_detector799_10.0um_scoreVolume/score_volumes/*`
   - `CSHL_volumes/atlasV7/score_volumes/*`

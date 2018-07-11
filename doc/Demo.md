@@ -58,6 +58,6 @@ To visualize the multi-probability level structures of the aligned atlas overlai
 The outputs are the following:
 
 **Atlas-overlaid images**
-- CSHL_registration_visualization/DEMO999_atlas_aligned_multilevel_down16_all_structures/NtbNormalizedAdaptiveInvertedGammaJpeg/
+- under `CSHL_registration_visualization/DEMO999_atlas_aligned_multilevel_down16_all_structures/NtbNormalizedAdaptiveInvertedGammaJpeg/`
 
 

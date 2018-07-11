@@ -1770,7 +1770,8 @@ class DataManager(object):
     def save_alignment_results_v3(transform_parameters=None, score_traj=None, parameter_traj=None,
                                   alignment_spec=None,
                                   aligner=None, select_best='last_value',
-                                  reg_root_dir=REGISTRATION_PARAMETERS_ROOTDIR):
+                                  reg_root_dir=REGISTRATION_PARAMETERS_ROOTDIR,
+                                 upload_s3=True):
         """
         Save the following alignment results:
         - `parameters`: eventual parameters
@@ -1807,12 +1808,14 @@ class DataManager(object):
         params_fp = DataManager.get_alignment_result_filepath_v3(alignment_spec=alignment_spec, what='parameters', reg_root_dir=reg_root_dir)
         create_if_not_exists(os.path.dirname(params_fp))
         save_json(transform_parameters, params_fp)
-        upload_to_s3(params_fp)
+        if upload_s3:
+            upload_to_s3(params_fp)
 
         # Save score history
         history_fp = DataManager.get_alignment_result_filepath_v3(alignment_spec=alignment_spec, what='scoreHistory', reg_root_dir=reg_root_dir)
         bp.pack_ndarray_file(np.array(score_traj), history_fp)
-        upload_to_s3(history_fp)
+        if upload_s3:
+            upload_to_s3(history_fp)
 
         # Save score plot
         score_plot_fp = \
@@ -1821,12 +1824,14 @@ class DataManager(object):
         plt.plot(score_traj);
         plt.savefig(score_plot_fp, bbox_inches='tight')
         plt.close(fig)
-        upload_to_s3(score_plot_fp)
+        if upload_s3:
+            upload_to_s3(score_plot_fp)
 
         # Save trajectory
         trajectory_fp = DataManager.get_alignment_result_filepath_v3(alignment_spec=alignment_spec, what='trajectory', reg_root_dir=reg_root_dir)
         bp.pack_ndarray_file(np.array(parameter_traj), trajectory_fp)
-        upload_to_s3(trajectory_fp)
+        if upload_s3:
+            upload_to_s3(trajectory_fp)
 
 
     @staticmethod
@@ -2434,10 +2439,10 @@ class DataManager(object):
 
 
     @staticmethod
-    def save_transformed_volume_v2(volume, alignment_spec, structure=None, wrt='wholebrain'):
+    def save_transformed_volume_v2(volume, alignment_spec, structure=None, wrt='wholebrain', upload_s3=True):
         vol, ori = convert_volume_forms(volume=volume, out_form=("volume", "origin"))
-        save_data(vol, DataManager.get_transformed_volume_filepath_v2(alignment_spec=alignment_spec, structure=structure))
-        save_data(ori, DataManager.get_transformed_volume_origin_filepath(alignment_spec=alignment_spec, structure=structure, wrt='fixedWholebrain'))
+        save_data(vol, DataManager.get_transformed_volume_filepath_v2(alignment_spec=alignment_spec, structure=structure), upload_s3=upload_s3)
+        save_data(ori, DataManager.get_transformed_volume_origin_filepath(alignment_spec=alignment_spec, structure=structure, wrt='fixedWholebrain'), upload_s3=upload_s3)
 
     @staticmethod
     def save_transformed_volume(volume, bbox, alignment_spec, resolution=None, structure=None):
@@ -3726,7 +3731,7 @@ class DataManager(object):
 
 
     @staticmethod
-    def get_original_volume_filepath_v2(stack_spec, structure, resolution=None):
+    def get_original_volume_filepath_v2(stack_spec, structure=None, resolution=None):
         """
         Args:
             stack_spec (dict): keys are:

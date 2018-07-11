@@ -115,40 +115,39 @@ parser = argparse.ArgumentParser(
     formatter_class=argparse.RawDescriptionHelpFormatter,
     description='Generate images with aligned atlas structures overlaid.')
 
-parser.add_argument("fixed_brain_spec", type=str, help="Fixed brain name")
-parser.add_argument("moving_brain_spec", type=str, help="Moving brain name")
-parser.add_argument("registration_setting", type=int, help="Registration setting")
-parser.add_argument("--structure_list", type=str, help="Json-encoded list of structures (unsided) (Default: all known structures)")
+# parser.add_argument("fixed_brain_spec", type=str, help="Fixed brain name")
+# parser.add_argument("moving_brain_spec", type=str, help="Moving brain name")
+# parser.add_argument("registration_setting", type=int, help="Registration setting")
+parser.add_argument("per_structure_alignment_spec", type=str, help="per_structure_alignment_spec, json")
+parser.add_argument("-g", "--global_alignment_spec", type=str, help="global_alignment_spec, json")
+# parser.add_argument("--structure_list", type=str, help="Json-encoded list of structures (unsided) (Default: all known structures)")
 args = parser.parse_args()
 
-brain_f_spec = load_json(args.fixed_brain_spec)
-brain_m_spec = load_json(args.moving_brain_spec)
-registration_setting = args.registration_setting
+# brain_f_spec = load_json(args.fixed_brain_spec)
+# brain_m_spec = load_json(args.moving_brain_spec)
+# registration_setting = args.registration_setting
+per_structure_alignment_spec = load_json(args.per_structure_alignment_spec)
+simpleGlobal_alignment_spec = load_json(args.global_alignment_spec)
 
-import json
-if hasattr(args, 'structure_list'): 
-    structure_list = json.loads(args.structure_list)
-else:
-    # structure_list = all_known_structures
-    structure_list = ['Amb', 'SNR', '7N', '5N', '7n', 'LRt', 'Sp5C', 'SNC', 'VLL', 'SC', 'IC']
-    
-simpleGlobal_alignment_spec = dict(stack_m=brain_m_spec, 
-                      stack_f=brain_f_spec,
-                      warp_setting=0)
+structure_list = per_structure_alignment_spec.keys()
 
-local_alignment_spec = dict(stack_m=brain_m_spec, 
-                      stack_f=brain_f_spec,
-                      warp_setting=registration_setting)
-
+# import json
+# if hasattr(args, 'structure_list'): 
+#     structure_list = json.loads(args.structure_list)
+# else:
+#     # structure_list = all_known_structures
+#     structure_list = ['Amb', 'SNR', '7N', '5N', '7n', 'LRt', 'Sp5C', 'SNC', 'VLL', 'SC', 'IC']
 
 section_margin_um = 1000.
 section_margin = int(section_margin_um / SECTION_THICKNESS)
 
-stack = brain_f_spec['name']
+stack = 'DEMO999'
+# stack = brain_f_spec['name']
 valid_secmin = np.min(metadata_cache['valid_sections'][stack])
 valid_secmax = np.max(metadata_cache['valid_sections'][stack])
 
 auto_contours_all_sec_all_structures_all_levels = defaultdict(lambda: defaultdict(dict))
+simple_global_contours_all_sec_all_structures_all_levels = defaultdict(lambda: defaultdict(dict))
 
 #######################
 
@@ -167,25 +166,16 @@ auto_contours_all_sec_all_structures_all_levels = defaultdict(lambda: defaultdic
 for structure_m in structure_list:
 
     ####################################################
-
-#         stack_m_spec = dict(name='atlasV6',
-#                            vol_type='score',
-#                            structure=structure_m,
-#                             resolution='10.0um'
-#                            )
-
-#         stack_f_spec = dict(name=stack,
-#                            vol_type='score',
-#                            detector_id=detector_id,
-#                            structure=convert_to_original_name(structure_m),
-#                             resolution='10.0um'
-#                            
+    
+    local_alignment_spec = per_structure_alignment_spec[structure_m]
+    
     vo = DataManager.load_transformed_volume_v2(alignment_spec=local_alignment_spec, 
                                                 return_origin_instead_of_bbox=True,
                                                structure=structure_m)
 
+    # prep2 because at end of get_structure_contours_from_structure_volumes_v2 we used wholebrainXYcropped
     registered_atlas_structures_wrt_wholebrainXYcropped_xysecTwoCorners = \
-    load_json(os.path.join(ROOT_DIR, 'CSHL_simple_global_registration', stack + '_registered_atlas_structures_wrt_wholebrainXYcropped_xysecTwoCorners.json')
+    load_json(os.path.join(ROOT_DIR, 'CSHL_simple_global_registration', stack + '_registered_atlas_structures_wrt_wholebrainXYcropped_xysecTwoCorners.json'))
 
     (_, _, secmin), (_, _, secmax) = registered_atlas_structures_wrt_wholebrainXYcropped_xysecTwoCorners[structure_m]
 
@@ -194,10 +184,16 @@ for structure_m in structure_list:
 
     levels = [0.1, 0.25, 0.5, 0.75, 0.99]
 
-    contours_all_sections_all_structures_all_levels = \
+    auto_contours_all_sections_one_structure_all_levels = \
     get_structure_contours_from_structure_volumes_v3(volumes={structure_m: vo}, stack=stack, 
                                                      sections=atlas_structures_wrt_wholebrainWithMargin_sections,
                                                     resolution='10.0um', level=levels, sample_every=5)
+
+    for sec, contours_one_structure_all_levels in sorted(auto_contours_all_sections_one_structure_all_levels.items()):
+        if not is_invalid(sec=sec, stack=stack):
+            for name_s, cnt_all_levels in contours_one_structure_all_levels.items():
+                for level, cnt in cnt_all_levels.iteritems():
+                    auto_contours_all_sec_all_structures_all_levels[sec][name_s][level] = cnt.astype(np.int)
 
     ####################################################
 
@@ -206,10 +202,16 @@ for structure_m in structure_list:
                                                              return_origin_instead_of_bbox=True,
                                                             structure=structure_m)
 
-    simpleGlobal_contours_all_sections_all_structures_all_levels = \
+    simpleGlobal_contours_all_sections_one_structure_all_levels = \
     get_structure_contours_from_structure_volumes_v3(volumes={structure_m: simpleGlobal_vo}, stack=stack, 
                                                      sections=atlas_structures_wrt_wholebrainWithMargin_sections,
                                                     resolution='10.0um', level=levels, sample_every=5)
+    
+    for sec, contours_one_structure_all_levels in sorted(simpleGlobal_contours_all_sections_one_structure_all_levels.items()):
+        if not is_invalid(sec=sec, stack=stack):
+            for name_s, cnt_all_levels in contours_one_structure_all_levels.items():
+                for level, cnt in cnt_all_levels.iteritems():
+                    simple_global_contours_all_sec_all_structures_all_levels[sec][name_s][level] = cnt.astype(np.int)
 
     ####################################
 
@@ -220,22 +222,9 @@ for structure_m in structure_list:
 #                                                          sections=atlas_structures_wrt_wholebrainWithMargin_sections,
 #                                                         resolution='10.0um', level=[.5], sample_every=1)
 
-    ####################################
-
-    # prep2 because at end of get_structure_contours_from_structure_volumes_v2 we used wholebrainXYcropped
-
-    for sec, contours_all_structures_all_levels in sorted(contours_all_sections_all_structures_all_levels.items()):
-
-        if is_invalid(sec=sec, stack=stack):
-            continue
-
-        for name_s, cnt_all_levels in contours_all_structures_all_levels.iteritems():
-            for level, cnt in cnt_all_levels.iteritems():
-                auto_contours_all_sec_all_structures_all_levels[sec][name_s][level] = cnt.astype(np.int)
-
 #######################################
 
-for sec, contours_all_structures_all_levels in sorted(auto_contours_all_sec_all_structures_all_levels.items()):
+for sec in sorted(auto_contours_all_sec_all_structures_all_levels.keys()):
 
     if is_invalid(sec=sec, stack=stack):
         continue
@@ -250,14 +239,14 @@ for sec, contours_all_structures_all_levels in sorted(auto_contours_all_sec_all_
             viz = gray2rgb(img)
 
             # Draw the locally aligned structure contours in COLOR
-            for name_s, cnt_all_levels in contours_all_structures_all_levels.iteritems():
+            for name_s, cnt_all_levels in auto_contours_all_sec_all_structures_all_levels[sec].iteritems():
 
                 for level, cnt in cnt_all_levels.iteritems():
                     cv2.polylines(viz, [cnt.astype(np.int)], isClosed=True, 
                                   color=LEVEL_TO_COLOR_LINE[level], thickness=10)
             
             # Draw the simple globally aligned structure contours in WHITE
-            for name_s, cnt_all_levels in simpleGlobal_contours_all_sections_all_structures_all_levels[sec].iteritems():
+            for name_s, cnt_all_levels in simple_global_contours_all_sec_all_structures_all_levels[sec].iteritems():
 
                 for level, cnt in cnt_all_levels.iteritems():
                     cv2.polylines(viz, [cnt.astype(np.int)], isClosed=True, 
@@ -276,7 +265,7 @@ for sec, contours_all_structures_all_levels in sorted(auto_contours_all_sec_all_
 
             fp = os.path.join(ROOT_DIR, 'CSHL_registration_visualization', 
                               stack + '_atlas_aligned_multilevel_down16_all_structures', 
-                              version, stack + '_' + version + '_' + ('%03d' % sec) + '.jpg')
+                              version, stack + '_' + version + '_' + ('%03d' % sec) + '.jpg')    
             create_parent_dir_if_not_exists(fp)
             imsave(fp, viz[::16, ::16])
             upload_to_s3(fp)

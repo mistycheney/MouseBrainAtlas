@@ -61,7 +61,11 @@ else:
 
 alignment_spec = dict(stack_m=brain_m_spec, stack_f=brain_f_spec, warp_setting=registration_setting)
 
-simpleGlobal_alignment_spec = dict(stack_m=brain_m_spec, stack_f=brain_f_spec, warp_setting=0)
+brain_m_spec0 = brain_m_spec.copy()
+brain_m_spec0.pop("structure")
+brain_f_spec0 = brain_f_spec.copy()
+brain_f_spec0.pop("structure")
+simpleGlobal_alignment_spec = dict(stack_m=brain_m_spec0, stack_f=brain_f_spec0, warp_setting=0)
 
 aligner_parameters = generate_aligner_parameters_v2(alignment_spec=alignment_spec, 
                                                     structures_m=structures_m,
@@ -129,7 +133,8 @@ print tf_atlas_to_subj
 DataManager.save_alignment_results_v3(transform_parameters=convert_transform_forms(transform=tf_atlas_to_subj, out_form='dict'),
                    score_traj=aligner.scores,
                    parameter_traj=aligner.Ts,
-                  alignment_spec=alignment_spec)
+                  alignment_spec=alignment_spec,
+                                     upload_s3=False)
 
 # Transform moving structures. Save transformed version.
 
@@ -171,7 +176,8 @@ for structure_m in structures_m:
 
         DataManager.save_transformed_volume_v2(volume=aligned_structure_wrt_wholebrain_inputResol, 
                                                alignment_spec=alignment_spec,
-                                              structure=s)
+                                              structure=s,
+                                               upload_s3=False)
 
         ###############################
 
@@ -183,4 +189,5 @@ for structure_m in structures_m:
 
         DataManager.save_transformed_volume_v2(volume=aligned_structure_wrt_wholebrain_inputResol, 
                                                alignment_spec=simpleGlobal_alignment_spec,
-                                              structure=s)
+                                              structure=s,
+                                               upload_s3=False)

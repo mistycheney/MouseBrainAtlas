@@ -1,0 +1,17 @@
+{
+"stack_m":
+        {
+        "name":"atlasV7",
+        "vol_type": "score",
+        "resolution":"10.0um"
+        },
+"stack_f":
+	{
+	"name":"DEMO999", 
+	"vol_type": "score", 
+	"resolution":"10.0um",
+	"detector_id":799
+	},
+"warp_setting": 0
+}
+

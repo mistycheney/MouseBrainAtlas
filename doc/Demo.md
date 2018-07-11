@@ -2,7 +2,7 @@ To run the registration demo,
 - make sure the following files are available
   - demo_fixed_brain_spec.json
   - demo_moving_brain_spec.json
-  - `CSHL_volumes/DEMO999/score_volumes/*`
+  - `CSHL_volumes/DEMO999/DEMO999_detector799_10.0um_scoreVolume/score_volumes/*`
   - `CSHL_volumes/atlasV7/score_volumes/*`
   - `CSHL_simple_global_registration/DEMO999_T_atlas_wrt_canonicalAtlasSpace_subject_wrt_wholebrain_atlasResol.bp`
 - `$ registration/register_brains.py demo_fixed_brain_spec.json demo_moving_brain_spec.json 7`

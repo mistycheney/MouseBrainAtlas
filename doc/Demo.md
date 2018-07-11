@@ -36,6 +36,8 @@ To visualize the multi-level structures of the atlas overlaid on original images
   - CSHL_data_processed/DEMO999/DEMO999_prep2_raw_NtbNormalizedAdaptiveInvertedGammaJpeg/[imgName]\_prep2_raw_NtbNormalizedAdaptiveInvertedGammaJpeg.jpg
 - `$ registration/visualize_registration.py demo_fixed_brain_spec.json demo_moving_brain_spec.json 7 --structure_list "[\"3N_R\", \"4N_R\"]"`
 
+The outputs are the following:
+
 **Atlas-overlaid images**
 - CSHL_registration_visualization/DEMO999_atlas_aligned_multilevel_down16_all_structures/NtbNormalizedAdaptiveInvertedGammaJpeg/
 

@@ -1,11 +1,11 @@
 To run the registration demo, 
-- make sure the following files are available
+- Run `download_demo_data.py`. Make sure the following files are available
   - demo_fixed_brain_spec.json
   - demo_moving_brain_spec.json
   - `CSHL_volumes/DEMO999/DEMO999_detector799_10.0um_scoreVolume/score_volumes/*`
   - `CSHL_volumes/atlasV7/score_volumes/*`
   - `CSHL_simple_global_registration/DEMO999_T_atlas_wrt_canonicalAtlasSpace_subject_wrt_wholebrain_atlasResol.bp`
-- `$ registration/register_brains.py demo_fixed_brain_spec.json demo_moving_brain_spec.json 7`
+- `$ ROOT_DIR=/home/yuncong/Brain/demo_data/ DATA_ROOTDIR=/home/yuncong/Brain/demo_data/  ./register_brains_demo.py demo_fixed_brain_spec.json demo_moving_brain_spec.json 7 -g`
 
 The program should finish in 2 minutes.
 
@@ -34,7 +34,7 @@ The expected outputs are listed below. You can download them from our S3 bucket 
 To visualize the multi-probability level structures of the aligned atlas overlaid on original images:
 - make sure the following image files are available:
   - CSHL_data_processed/DEMO999/DEMO999_prep2_raw_NtbNormalizedAdaptiveInvertedGammaJpeg/[imgName]\_prep2_raw_NtbNormalizedAdaptiveInvertedGammaJpeg.jpg
-- `$ registration/visualize_registration.py demo_fixed_brain_spec.json demo_moving_brain_spec.json 7 --structure_list "[\"3N_R\", \"4N_R\"]"`
+- `$ ROOT_DIR=/home/yuncong/Brain/demo_data/ DATA_ROOTDIR=/home/yuncong/Brain/demo_data/ ./visualize_registration_demo.py demo_fixed_brain_spec.json demo_moving_brain_spec.json 7 --structure_list  "[\"3N_R\", \"4N_R\"]"`
 
 The outputs are the following:
 

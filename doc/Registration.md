@@ -38,6 +38,10 @@ Each setting specifies the following parameters:
 - learning_rate_rot
 - comment
 
+# Global registration
+
+The early version of system uses all structures to compute a global registration.
+Since it is not well defined how one can evaluate global registration, in the latest version this stage is simply done by aligning geometric centers. 
 
 # Local registration
 

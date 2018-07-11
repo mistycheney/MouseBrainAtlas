@@ -1,6 +1,7 @@
 This demo assumes a subject brain (DEMO999) is roughly globally aligned with the atlas (atlasV7).
-It performs local registration for 7N (facial motor nucleus).
-And then registers 3N_R and 4N_R as a group.
+It shows how to:
+- register 7N (facial motor nucleus) individually.
+- registers 3N_R and 4N_R as a group.
 
 ---------------------------
 

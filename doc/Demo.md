@@ -7,7 +7,7 @@ It shows how one can:
 ---------------------------
 
 ## Download input data
-First run `download_demo_data.py [demo_data_dir]` to download input data. Input data will be downloaded in `[demo_data_dir]`. Make sure the following files are available
+First run `download_demo_data.py [demo_data_dir]` to download input data. `[demo_data_dir]` is a folder specified by the user to store demo input data. Make sure the following files are downloaded:
   - `CSHL_volumes/DEMO999/DEMO999_detector799_10.0um_scoreVolume/score_volumes/*`
   - `CSHL_volumes/atlasV7/score_volumes/*`
   - `CSHL_simple_global_registration/DEMO999_T_atlas_wrt_canonicalAtlasSpace_subject_wrt_wholebrain_atlasResol.bp`

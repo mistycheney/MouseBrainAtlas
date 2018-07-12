@@ -8,8 +8,8 @@ It shows how one can:
 
 ## Download input data
 
-- Run `setup/set_env_variables.sh`.
-- First run `download_demo_data.py` to download input data into this folder.
+- Run `cd setup; source set_env_variables.sh`.
+- Then run `cd ../demo; download_demo_data.py` to download input data into a folder called `demo_dir`.
 
 ## Register 12N individually
 - `$ ./register_brains_demo.py demo_fixed_brain_spec_12N.json demo_moving_brain_spec_12N.json`

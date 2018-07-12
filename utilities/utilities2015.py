@@ -26,9 +26,6 @@ except:
 
 import bloscpack as bp
 
-from ipywidgets import FloatProgress
-from IPython.display import display
-
 from skimage.measure import grid_points_in_poly, subdivide_polygon, approximate_polygon
 from skimage.measure import find_contours, regionprops
 
@@ -1388,6 +1385,9 @@ def array_to_one_liner(arr):
     return ' '.join(map(str, arr)) + '\n'
 
 def show_progress_bar(min, max):
+    from ipywidgets import FloatProgress
+    from IPython.display import display
+
     bar = FloatProgress(min=min, max=max)
     display(bar)
     return bar

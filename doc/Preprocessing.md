@@ -197,7 +197,7 @@ Make sure the following items are generated under `DATA_DIR/<stack>`:
 - `<stack>_elastix_output/`: pairwise transforms
 - `<stack>_anchor.txt`: anchor section
 - `<stack>_transformTo_<anchorName>.pkl`: to-anchor transforms for every section
-- `<stack>_prep1_thumbnail_NtbNormalized`: images aligned using the to-anchor transforms
+- `<stack>_prep1_thumbnail_NtbNormalized/`: images aligned using the to-anchor transforms
 
 ## Review alignment
 

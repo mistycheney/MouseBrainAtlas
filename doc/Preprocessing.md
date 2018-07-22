@@ -3,7 +3,7 @@
 The steps for different data types vary slightly. The following section summarizes these steps for each data type.
 Details on how to perform each step are in the rest of this page.
 
-In the following explanation, each step is characterized by a pair of image set names, denoting the input and the output respectively. A standard naming convention is used to name all images involved in the preprocessing process. [This page](ImageNamingConvention.md) describes the naming convention.
+In the following explanation, each step is characterized by a pair of image set names, denoting the input and the output respectively. A standard naming convention is used to name all images involved in the preprocessing process. [This page](ImageNamingConvention.md) describes the naming convention. In addition, each step uses a script, whose name is given after the input/output pair.
 
 ## Convert data from scanner format to TIF
 
@@ -39,7 +39,7 @@ _prep5_raw_ will be published online.
 * Compute transforms using thumbnail_NtbNormalized: `align`
 * Supply prep1_thumbnail_mask
 * prep1_thumbnail_mask -> thumbnail_mask: `warp`
-* raw_Ntb -> raw_NtbNormalizedAdaptiveInvertedGamma: `brightness correction`
+* raw_Ntb -> raw_NtbNormalizedAdaptiveInvertedGamma: `brightness_correction`
 * Compute prep5 (alignedWithMargin) cropping box based on prep1_thumbnail_mask
 * raw_NtbNormalizedAdaptiveInvertedGamma -> prep5_raw_NtbNormalizedAdaptiveInvertedGamma: `crop`
 * thumbnail_NtbNormalized -> prep5_thumbnail_NtbNormalized: `crop`

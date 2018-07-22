@@ -50,9 +50,8 @@ _prep5_raw_ will be published online.
 
 --------------------------
 
-# jp2/czi -> raw
+# jp2 -> raw
 
-## CSHL data
 Data from CSHL are acquired using Hamamatsu Nanozoomer (0.46 micron/pixel).
 Raw data from the scanner are NDPI files. 
 The raw files are of whole-slides and do not specify the bounding box of individual sections.
@@ -61,17 +60,15 @@ CSHL did the segmentation and sent us images of individual sections re-encoded a
 
 For each image, there are four files. The png and tif are thumbnails. Ignore the lossy jp2 file. The lossless jp2 is the raw data.
 
-### Convert JPEG2000 to TIF
-Use [Kakadu](http://kakadusoftware.com/downloads/). Run `export LD_LIBRARY_PATH=<kdu_dir>:$LD_LIBRARY_PATH; <kdu_bin> -i <in_fp> -o <out_fp>`.
+To convert JPEG2000 to TIFF, use [Kakadu](http://kakadusoftware.com/downloads/). Run `export LD_LIBRARY_PATH=<kdu_dir>:$LD_LIBRARY_PATH; <kdu_bin> -i <in_fp> -o <out_fp>`.
 
 Output are 8-bit (thionin) or 16-bit (fluorescent) TIFFs.
 
-## UCSD data
+# czi -> raw
 UCSD data are acquired using Zeiss Axioscan (0.325 micron/pixel).
 Raw data from the scanner are CZI files. In these files individual sections are recorded as different scenes.
 
-### Convert CZI to TIFF
-Use [CZItoTIFFConverter](http://cifweb.unil.ch/index.php?option=com_content&task=view&id=152&Itemid=2) ([user manual](https://www.unige.ch/medecine/bioimaging/files/7814/3714/1634/CZItoTIFFConverter.pdf)).
+To convert CZI to TIFF, use [CZItoTIFFConverter](http://cifweb.unil.ch/index.php?option=com_content&task=view&id=152&Itemid=2) ([user manual](https://www.unige.ch/medecine/bioimaging/files/7814/3714/1634/CZItoTIFFConverter.pdf)).
 
 Use the graphical interface with the following settings:
 - Create BigTIFF files (check)

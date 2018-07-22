@@ -12,7 +12,7 @@ In the following explanation, each step is characterized by a pair of image set 
 
 ## For thionin (brightfield) data
 * raw -> thumbnail: `rescale`
-* Compute tranforms using thumbnail: `align`
+* Compute tranforms using thumbnail: `align` + `compose`
 * thumbnail -> prep1_thumbnail: `crop`
 * Supply prep1_thumbnail_mask
 * prep1_thumbnail_mask -> thumbnail_mask: `warp`
@@ -36,7 +36,7 @@ _prep5_raw_ will be published online.
 * raw -> raw_Ntb: `extract_channel`
 * raw_Ntb -> thumbnail_Ntb: `rescale`
 * thumbnail_Ntb -> thumbnail_NtbNormalized: `normalize_intensity`
-* Compute transforms using thumbnail_NtbNormalized: `align`
+* Compute transforms using thumbnail_NtbNormalized: `align` + `compose`
 * Supply prep1_thumbnail_mask
 * prep1_thumbnail_mask -> thumbnail_mask: `warp`
 * raw_Ntb -> raw_NtbNormalizedAdaptiveInvertedGamma: `brightness_correction`

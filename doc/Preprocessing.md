@@ -1,11 +1,9 @@
 # General Steps:
 
-The steps for different data types vary slightly. 
+The steps for different data types vary slightly. The following section summarizes these steps for each data type.
+Details on how to perform each step are in the rest of this page.
 
 In the following explanation, each step is characterized by a pair of image set names, denoting the input and the output respectively. A standard naming convention is used to name all images involved in the preprocessing process. [This page](ImageNamingConvention.md) describes the naming convention.
-
-The following section summarizes these steps for each data type.
-Details on how to perform each step are in the rest of this page.
 
 ## For JPEG2000 compressed data
 * jp2 -> raw

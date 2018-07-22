@@ -5,8 +5,6 @@ The steps for different data types vary slightly. Each step is characterized by 
 The following section summarizes these steps for each data type.
 Details on how to perform each step are in the rest of this page.
 
-## Convert raw data to TIFs
-
 ## For JPEG2000 compressed data
 * jp2 -> raw
 

@@ -188,7 +188,15 @@ Select "Show cropbox". Draw a 2-D crop box.
 Also set the first section and the last section.
 
 Make sure the following items are generated under `DATA_DIR/<stack>`:
-- `<stack>_alignedTo_<anchorImageName>_cropbox.txt`. This file contains one line (xmin, xmax, ymin, ymax, sec_min, sec_max).
+- `<stack>_alignedTo_<anchorImageName>_prep<prepId>_cropbox.json`: This file contains a dict with the following keys:
+	- `rostral_limit`
+	- `caudal_limit`
+	- `dorsal_limit`
+	- `ventral_limit`
+The coordinates are relative to images of prep_id=1 (alignPadded) in down32 resolution.
+- `<stack>_alignedTo_<anchorImageName>_prep<prepId>_sectionLimits.json`: This file contains a dict with the following keys:
+	- `left_section_limit`
+	- `right_section_limit`
 
 Run
 `$ crop.py <stack>`

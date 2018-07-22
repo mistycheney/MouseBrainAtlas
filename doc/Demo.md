@@ -8,16 +8,8 @@ It shows how one can:
 
 ## Download input data
 
-Set the environment variable to point to the folder of the downloaded code repository.
-- `export REPO_DIR=[repo_dir]`.
-
-Specify a folder `demo_data_dir` to store demo input data.
-First run `download_demo_data.py [demo_data_dir]` to download input data into this folder.
-
-Set the environment variables which refer to a root directory that contains both input and output data.
-- `export ROOT_DIR=[demo_data_dir]`
-- `export DATA_ROOTDIR=[demo_data_dir]`
-- `export THUMBNAIL_DATA_ROOTDIR=[demo_data_dir]`
+- Run `cd setup; source set_env_variables.sh`.
+- Then run `cd ../demo; ./download_demo_data.py` to download input data into a folder called `demo_data`.
 
 ## Register 12N individually
 - `$ ./register_brains_demo.py demo_fixed_brain_spec_12N.json demo_moving_brain_spec_12N.json`

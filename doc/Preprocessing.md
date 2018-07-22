@@ -5,11 +5,10 @@ Details on how to perform each step are in the rest of this page.
 
 In the following explanation, each step is characterized by a pair of image set names, denoting the input and the output respectively. A standard naming convention is used to name all images involved in the preprocessing process. [This page](ImageNamingConvention.md) describes the naming convention.
 
-## For JPEG2000 compressed data
-* jp2 -> raw
+## Convert data from scanner format to TIF
 
-## For CZI data
-* czi -> raw 
+* jp2 -> raw (for JPEG2000 data)
+* czi -> raw (for czi data)
 
 ## For thionin (brightfield) data
 * raw -> thumbnail

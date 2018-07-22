@@ -41,8 +41,8 @@ _prep5_raw_ will be published online.
 * prep1_thumbnail_mask -> thumbnail_mask: `warp`
 * raw_Ntb -> raw_NtbNormalizedAdaptiveInvertedGamma: `brightness_correction`
 * Compute prep5 (alignedWithMargin) cropping box based on prep1_thumbnail_mask
-* raw_NtbNormalizedAdaptiveInvertedGamma -> prep5_raw_NtbNormalizedAdaptiveInvertedGamma: `crop`
-* thumbnail_NtbNormalized -> prep5_thumbnail_NtbNormalized: `crop`
+* raw_NtbNormalizedAdaptiveInvertedGamma -> prep5_raw_NtbNormalizedAdaptiveInvertedGamma: `align` + `crop`
+* thumbnail_NtbNormalized -> prep5_thumbnail_NtbNormalized: `align` + `crop`
 * prep5_raw_NtbNormalizedAdaptiveInvertedGamma -> prep5_thumbnail_NtbNormalizedAdaptiveInvertedGamma: `rescale`
 * Specify prep2 (alignedBrainstemCrop) cropping box
 * prep5_raw_NtbNormalizedAdaptiveInvertedGamma -> prep2_raw_NtbNormalizedAdaptiveInvertedGamma: `crop`

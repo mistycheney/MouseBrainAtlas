@@ -123,8 +123,8 @@ parser = argparse.ArgumentParser(
 # parser.add_argument("fixed_brain_spec", type=str, help="Fixed brain name")
 # parser.add_argument("moving_brain_spec", type=str, help="Moving brain name")
 # parser.add_argument("registration_setting", type=int, help="Registration setting")
-parser.add_argument("per_structure_alignment_spec", type=str, help="per_structure_alignment_spec, json")
-parser.add_argument("-g", "--global_alignment_spec", type=str, help="global_alignment_spec, json")
+parser.add_argument("--per_structure_alignment_spec", type=str, help="per_structure_alignment_spec, json", default='demo_visualization_per_structure_alignment_spec.json')
+parser.add_argument("-g", "--global_alignment_spec", type=str, help="global_alignment_spec, json", default='demo_visualization_global_alignment_spec.json')
 # parser.add_argument("--structure_list", type=str, help="Json-encoded list of structures (unsided) (Default: all known structures)")
 args = parser.parse_args()
 

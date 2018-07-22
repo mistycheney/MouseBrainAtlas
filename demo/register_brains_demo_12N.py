@@ -25,8 +25,8 @@ parser = argparse.ArgumentParser(
     formatter_class=argparse.RawDescriptionHelpFormatter,
     description='This script computes the transform matrices and generate the transformed moving brain volumes.')
 
-parser.add_argument("fixed_brain_spec", type=str, help="Fixed brain specification, json")
-parser.add_argument("moving_brain_spec", type=str, help="Moving brain specification, json")
+parser.add_argument("--fixed_brain_spec", type=str, help="Fixed brain specification, json", default='demo_fixed_brain_spec_12N.json')
+parser.add_argument("--moving_brain_spec", type=str, help="Moving brain specification, json", default='demo_moving_brain_spec_12N.json')
 parser.add_argument("-r", "--registration_setting", type=int, help="Registration setting, int, defined in registration_settings.csv", default=7)
 parser.add_argument("-g", "--use_simple_global", action='store_false', help="Set this flag to NOT initialize with simple global registration")
 # parser.add_argument("--out_dir", type=str, help="Output directory")

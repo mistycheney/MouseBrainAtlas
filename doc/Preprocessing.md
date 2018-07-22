@@ -50,7 +50,9 @@ _prep5_raw_ will be published online.
 
 --------------------------
 
-# jp2 -> raw
+# Detailed Steps
+
+## jp2 -> raw
 
 Data from CSHL are acquired using Hamamatsu Nanozoomer (0.46 micron/pixel).
 Raw data from the scanner are NDPI files. 
@@ -64,7 +66,7 @@ To convert JPEG2000 to TIFF, use [Kakadu](http://kakadusoftware.com/downloads/).
 
 Output are 8-bit (thionin) or 16-bit (fluorescent) TIFFs.
 
-# czi -> raw
+## czi -> raw
 UCSD data are acquired using Zeiss Axioscan (0.325 micron/pixel).
 Raw data from the scanner are CZI files. In these files individual sections are recorded as different scenes.
 
@@ -81,7 +83,7 @@ Use the graphical interface with the following settings:
 
 Output are 8-bit (thionin) or 16-bit (fluorescent) TIFFs.
 
-# raw -> Ntb/CHAT or raw -> gray
+## raw -> Ntb/CHAT or raw -> gray
 
 Extract from data a single channel that shows Nissl cytoarchitecture and optionally, another single channel that shows cell markers.
 
@@ -91,14 +93,9 @@ For Axioscan fluorescent images, channels are labeled with meaningful names.
 
 For Nissl images, convert RGB to grayscale.
 
-
-# Rectify images
+## Rectify images
 
 The images must have anterior at the left, posterior at the right, dorsal at the top and ventral at the bottom.
-
-# Preprocessing a new stack
-
-In this part, the user examines the images, creates tissue masks, aligns the sections in a stack and (optionally) crops the images.
 
 ## Initialization
 

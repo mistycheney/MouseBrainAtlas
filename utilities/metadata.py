@@ -179,8 +179,8 @@ elif hostname == 'yuncong-Precision-WorkStation-T7500' and username == 'alexn':
     RAW_DATA_DIR = os.path.join(DATA_ROOTDIR, 'CSHL_data')
 
     ON_AWS = False
-    # S3_DATA_BUCKET = 'mousebrainatlas-data'
-    # S3_RAWDATA_BUCKET = 'mousebrainatlas-rawdata'
+    S3_DATA_BUCKET = 'mousebrainatlas-data-alexn'
+    S3_RAWDATA_BUCKET = 'mousebrainatlas-rawdata-alexn'
 
     REPO_DIR = os.environ['REPO_DIR']
 

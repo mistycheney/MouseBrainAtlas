@@ -12,7 +12,7 @@ parser = argparse.ArgumentParser(
     formatter_class=argparse.RawDescriptionHelpFormatter,
     description='This script downloads input data for demo.')
 
-parser.add_argument("demo_data_dir", type=str, help="Directory to store demo input data")
+parser.add_argument("-d", "--demo_data_dir", type=str, help="Directory to store demo input data", default='demo_data')
 args = parser.parse_args()
 
 # demo_data_dir = '/home/yuncong/Brain/demo_data/'

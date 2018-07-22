@@ -97,7 +97,7 @@ For Nissl images, convert RGB to grayscale.
 
 The images must have anterior at the left, posterior at the right, dorsal at the top and ventral at the bottom.
 
-## Initialization
+## Specify input image paths
 
 Create a JSON file that describes the image file paths. The file contains the following information:
 - `raw_data_dirs`: this is a dict with a list of (version, resolution)-tuples as keys. For example they keys might be ('CHAT', 'raw') or ('Ntb', 'thumbnail').

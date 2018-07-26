@@ -11,10 +11,12 @@ In the following explanation, each step is characterized by a pair of image set 
 * czi -> raw (for czi data)
 
 ## For thionin (brightfield) data
-* raw -> thumbnail: `rescale`
+* raw -> thumbnail: `resize`
+`resize.py <in_fp_map> <out_fp_map> 0.03125`
 * Loop:
 	* Compute pairwise tranforms using thumbnail: `align`
 	* Compose pairwise transforms to get each image's transform to anchor: `compose`
+	`align_compose.py [stack] [resol] [version] [image_names] [filelist] [anchor] [elastix_output_dir] [custom_output_dir]`
 	* thumbnail -> prep1_thumbnail: `warp`
 	* Inspect aligned images, correct pairwise transforms and check each image's order in stack (HUMAN)
 * If `thumbnail_mask` is given:

@@ -93,6 +93,7 @@ For Axioscan fluorescent images, channels are labeled with meaningful names.
 
 For Nissl images, convert RGB to grayscale.
 
+
 ## Rectify images
 
 The images must have anterior at the left, posterior at the right, dorsal at the top and ventral at the bottom.
@@ -144,6 +145,19 @@ Make sure the following items are generated under `DATA_DIR/<stack>`:
 Make sure the following items are generated under `DATA_DIR/<stack>`:
 - `<stack>_thumbnail_NtbNormalized`
 
+The detailed steps for intensity normalization are:
+- Load image
+- Rescale mask
+- Compute mean/std for sample regions
+- Interpolate mean map
+- Scale up mean map
+- Interpolate std map
+- Scale up std map
+- Normalize (subtract each pixel's intensity by mean and then divide by std)
+- Save float version
+- Rescale to uint8
+
+
 ## Compute intra-stack transforms
 
 `$ align.py <stack>`
@@ -177,7 +191,7 @@ If any correction is made, make sure the following items are generated under `DA
 Then re-run
 `$ align.py <stack>`
 
-## Specify cropping
+## Crop
 
 Cropping of the images is desired to focus computation only on the region of interest.
 
@@ -190,6 +204,8 @@ Make sure the following items are generated under `DATA_DIR/<stack>`:
 	- `caudal_limit`
 	- `dorsal_limit`
 	- `ventral_limit`
+	- `wrt`
+	- `resolution`
 The coordinates are relative to images of prep_id=1 (alignPadded) in down32 resolution.
 - `<stack>_alignedTo_<anchorImageName>_prep<prepId>_sectionLimits.json`: This file contains a dict with the following keys:
 	- `left_section_limit`

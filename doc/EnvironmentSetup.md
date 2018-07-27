@@ -1,11 +1,26 @@
 
 # Software installation
 
-`$ pip install activeatlas`
+### Python packages 
 
-This will download the scripts and the package containing the reference anatomical model and the trained texture classifiers.
+First install pip:
+`sudo apt-get install python-pip`
 
-Edit `global_setting.py` to specify global data path variables.
+It is recommended to install and use virtualenv ([guide](http://exponential.io/blog/2015/02/10/install-virtualenv-and-virtualenvwrapper-on-ubuntu)).
+
+To install required Python packages, 
+`pip install -r requirements.txt`
+
+[`requirements.txt`](https://github.com/mistycheney/MouseBrainAtlas/blob/master/requirements.txt) specifies the names and versions of all packages.
+
+### Jupyter (iPython)
+`pip install jupyter`
+
+### PyQt4 (required for annotation GUI)
+`sudo apt-get install python-qt4`
+
+### Others
+
 
 # Login into servers
 

@@ -38,6 +38,10 @@ Each setting specifies the following parameters:
 - learning_rate_rot
 - comment
 
+# Global registration
+
+The early version of system uses the texture detection maps of all structures to compute an affine global registration.
+Since it is not well defined how one can evaluate a global registration, this actually only needs to be a very crude registration. In the latest version this stage is simply done by aligning two manually chosen landmark points. In the future this can be achieved by aligning the brain outlines.
 
 # Local registration
 
@@ -45,7 +49,7 @@ Run `registration/register_brain.py <fixed_brain_spec_json> <moving_brain_spec_j
 
 Generated registration results are stored at
 `CSHL_registration_parameters/<atlas_name>/<atlas_name>_10.0um_scoreVolume_<moving_structures>_warp<registration_id>_<fixed_brain>_detector<detector_id>_10.0um_scoreVolume_<fixed_structures>`.
-Also see [Explanation of registration results](DataDescription.md)
+Also see [Explanation of registration results](DataDescription.md#registration-results)
 
 Transformed moving structures (including the corresponding surround structures) are stored at 
 `CSHL_volumes/<atlas_name>/<moving_brain_spec>_warp<registration_setting_id>_<fixed_brain_spec>/score_volumes/`

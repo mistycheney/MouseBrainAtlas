@@ -5,9 +5,13 @@ import time
 try:
     import vtk
     from vtk.util import numpy_support
-    import mcubes # https://github.com/pmneila/PyMCubes
 except:
     sys.stderr.write('No vtk\n')
+
+try:
+    import mcubes # https://github.com/pmneila/PyMCubes
+except:
+    sys.stderr.write('No mcubes\n')
 
 from skimage.measure import marching_cubes, correct_mesh_orientation, mesh_surface_area
 

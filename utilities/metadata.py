@@ -179,8 +179,8 @@ elif hostname == 'yuncong-Precision-WorkStation-T7500' and username == 'alexn':
     RAW_DATA_DIR = os.path.join(DATA_ROOTDIR, 'CSHL_data')
 
     ON_AWS = False
-    # S3_DATA_BUCKET = 'mousebrainatlas-data'
-    # S3_RAWDATA_BUCKET = 'mousebrainatlas-rawdata'
+    S3_DATA_BUCKET = 'mousebrainatlas-data-alexn'
+    S3_RAWDATA_BUCKET = 'mousebrainatlas-rawdata-alexn'
 
     REPO_DIR = os.environ['REPO_DIR']
 
@@ -534,7 +534,8 @@ all_dk_ntb_stacks = ['CHATM2', 'CHATM3']
 all_alt_nissl_ntb_stacks = ['MD653', 'MD652', 'MD642']
 all_alt_nissl_tracing_stacks = ['MD657', 'MD658', 'MD661', 'MD662']
 # all_stacks = all_nissl_stacks + all_ntb_stacks
-all_stacks = all_nissl_stacks + all_ntb_stacks + all_alt_nissl_ntb_stacks + all_alt_nissl_tracing_stacks + all_dk_ntb_stacks
+all_stacks = all_nissl_stacks + all_ntb_stacks + all_alt_nissl_ntb_stacks + all_alt_nissl_tracing_stacks + all_dk_ntb_stacks \
+                + ['DEMO999'] 
 all_annotated_nissl_stacks = ['MD585', 'MD589', 'MD594']
 all_annotated_ntb_stacks = ['MD635']
 all_annotated_stacks = all_annotated_nissl_stacks + all_annotated_ntb_stacks
@@ -563,6 +564,7 @@ planar_resolution = {'MD585': XY_PIXEL_DISTANCE_LOSSLESS,
                      # 'DmaleAxioscan': XY_PIXEL_DISTANCE_LOSSLESS_AXIOSCAN,
                      'CHATM2': XY_PIXEL_DISTANCE_LOSSLESS_AXIOSCAN,
                      'CHATM3': XY_PIXEL_DISTANCE_LOSSLESS_AXIOSCAN,
+                     'DEMO999': XY_PIXEL_DISTANCE_LOSSLESS,
                     }
 
 ########################################

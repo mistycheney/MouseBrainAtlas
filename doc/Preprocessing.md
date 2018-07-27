@@ -1,92 +1,70 @@
-# Naming convention for processed images #
-
-Every processed image can be uniquely identified by a combination of the following information:
-- **image name**: a string that uniquely identifies a physical section.
-- **prep id**: a number or word that identifies the _spatial_ adjustment operations applied.
-- **version**: a word that specifies particular channel or _appearance_ adjustment operations.
-- **resolution**: a word that specifies the pixel resolution.
-
-Processed images are stored under `$DATA_ROOTDIR`. The path to each processed image follows the pattern `<stack>/<stack>_prep<prep_id>_<resol>_<version>/<image_name>_prep<prep_id>_<resol>_<version>.<ext>`.
-
-### Image Name ###
-
-Each physical section is associated with an `imageName`.
-There is no fixed composition rule for image names.
-The principle is that one can trace back from an image name to the physical section. Therefore in each image name, these two elements are mandatory:
-- slide number
-- section or scene index in the slide
-
-Other than that, the brain id is optional but desired. Other information such as the scan date or stain name are optional.
-For example, both `CHATM3_slide31_2018_02_17-S2` and `Slide31-Nissl-S2` are valid image names.
-It is important to use only one composition rule for each brain. **Do not use space or special characters such as ampersand** as they will not be parsed correctly in Linux commandline.
-
-### Preprocessing Identifier (prep id) ###
-- None: original unaligned uncropped image
-- 1 (alignedPadded): section-to-section aligned, with large paddings.
-- 5 (alignedWithMargin): tightly crop over full tissue area with fixed small margin on all four sides.
-- 2 (alignedBrainstemCrop): crop only the brainstem area (from caudal end of thalamus to caudal end of trigeminal caudalis, from top of superior colliculus to bottom of brain)
-
-### Resolution ###
-- raw: original resolution of images. (0.325 micron/pixel for Axioscan, 0.46 micron/pixel for Nanozoomer)
-- thumbnail: usually 32x downscaled from raw
-- 10.0um: 10 micron
-
-### Version ###
-- Ntb: Neurotrace blue channel. Single-channel image.
-- NtbNormalized: linearly intensity stretched.
-- NtbNormalizedAdaptiveInvertedGamma: locally adaptive intensity normalized.
-- CHAT: ChAT signal channel. Single-channel image.
-- gray: single-channel grayscale images converted from RGB thionin images using skimage's `rgb2gray`.
-- mask: binary mask (1 for the tissue area, 0 for slide background).
-
-
 # General Steps:
 
-## Convert raw data to TIFs
-- jp2 -> raw
+The steps for different data types vary slightly. The following section summarizes these steps for each data type.
+Details on how to perform each step are in the rest of this page.
+
+In the following explanation, each step is characterized by a pair of image set names, denoting the input and the output respectively. A standard naming convention is used to name all images involved in the preprocessing process. [This page](ImageNamingConvention.md) describes the naming convention. In addition, each step uses a script, whose name is given after the input -> output pair.
+
+## Convert data from scanner format to TIF
+
+* jp2 -> raw (for JPEG2000 data)
+* czi -> raw (for czi data)
 
 ## For thionin (brightfield) data
-* raw -> thumbnail
-* **Compute tranforms using thumbnail**
-* thumbnail -> prep1_thumbnail
-* **Supply prep1_thumbnail_mask**
-* prep1_thumbnail_mask -> thumbnail_mask
-* raw -> prep1_raw
-* **Compute prep5 (alignedWithMargin) cropping box based on prep1_thumbnail_mask**
-* prep1_raw -> prep5_raw:
-* prep1_thumbnail -> prep5_thumbnail:
-* prep1_thumbnail_mask -> prep5_thumbnail_mask:
-* **Specify prep2 (alignedBrainstemCrop) cropping box**
-* prep5_raw -> prep2_raw
-* prep5_thumbnail -> prep2_thumbnail
-* prep5_thumbnail_mask -> prep2_thumbnail_mask
-* prep2_raw -> prep2_raw_gray
-* prep2_raw_gray -> prep2_raw_grayJpeg
-* prep2_raw -> prep2_raw_jpeg
+* raw -> thumbnail: `resize`
+`resize.py <in_fp_map> <out_fp_map> 0.03125`
+* Loop:
+	* Compute pairwise tranforms using thumbnail: `align`
+	* Compose pairwise transforms to get each image's transform to anchor: `compose`
+	`align_compose.py [stack] [resol] [version] [image_names] [filelist] [anchor] [elastix_output_dir] [custom_output_dir]`
+	* thumbnail -> prep1_thumbnail: `warp`
+	* Inspect aligned images, correct pairwise transforms and check each image's order in stack (HUMAN)
+* If `thumbnail_mask` is given:
+	* thumbnail_mask -> prep1_thumbnail_mask: `warp`
+* Else:
+	* Supply prep1_thumbnail_mask (HUMAN)
+	* prep1_thumbnail_mask -> thumbnail_mask: `warp`
+* Compute prep5 (alignedWithMargin) crop box based on prep1_thumbnail_mask
+* Either
+	* raw -> prep1_raw: `warp`
+	* prep1_raw -> prep5_raw: `crop`
+* Or
+	* raw -> prep5_raw: `warp` + `crop`
+* prep1_thumbnail -> prep5_thumbnail: `crop`
+* prep1_thumbnail_mask -> prep5_thumbnail_mask: `crop`
+* Specify prep2 (alignedBrainstemCrop) cropping box (HUMAN)
+* prep5_raw -> prep2_raw: `crop`
+* prep5_thumbnail -> prep2_thumbnail: `crop`
+* prep5_thumbnail_mask -> prep2_thumbnail_mask: `crop`
+* prep2_raw -> prep2_raw_gray: `extract_channel`
+* prep2_raw_gray -> prep2_raw_grayJpeg: `compress_jpeg`
+* prep2_raw -> prep2_raw_jpeg: `compress_jpeg`
 
 _prep2_raw_gray_ are used for structure detection.
 _prep5_raw_ will be published online.
 
 ## For Neurotrace (fluorescent) data
-* raw -> raw_Ntb:
-* raw_Ntb -> thumbnail_Ntb
-* thumbnail_Ntb -> thumbnail_NtbNormalized
-* **Compute transforms using thumbnail_NtbNormalized**
-* **Supply prep1_thumbnail_mask**
-* prep1_thumbnail_mask -> thumbnail_mask
-* raw_Ntb -> raw_NtbNormalizedAdaptiveInvertedGamma (**brightness correction**)
-* **Compute prep5 (alignedWithMargin) cropping box based on prep1_thumbnail_mask**
-* raw_NtbNormalizedAdaptiveInvertedGamma -> prep5_raw_NtbNormalizedAdaptiveInvertedGamma
-* thumbnail_NtbNormalized -> prep5_thumbnail_NtbNormalized
-* prep5_raw_NtbNormalizedAdaptiveInvertedGamma -> prep5_thumbnail_NtbNormalizedAdaptiveInvertedGamma
-* **Specify prep2 (alignedBrainstemCrop) cropping box**
-* prep5_raw_NtbNormalizedAdaptiveInvertedGamma -> prep2_raw_NtbNormalizedAdaptiveInvertedGamma
-* prep2_raw_NtbNormalizedAdaptiveInvertedGamma -> prep2_raw_NtbNormalizedAdaptiveInvertedGammaJpeg
+* raw -> raw_Ntb: `extract_channel`
+* raw_Ntb -> thumbnail_Ntb: `rescale`
+* thumbnail_Ntb -> thumbnail_NtbNormalized: `normalize_intensity`
+* Compute transforms using thumbnail_NtbNormalized: `align` + `compose`
+* Supply prep1_thumbnail_mask
+* prep1_thumbnail_mask -> thumbnail_mask: `warp`
+* raw_Ntb -> raw_NtbNormalizedAdaptiveInvertedGamma: `brightness_correction`
+* Compute prep5 (alignedWithMargin) cropping box based on prep1_thumbnail_mask
+* raw_NtbNormalizedAdaptiveInvertedGamma -> prep5_raw_NtbNormalizedAdaptiveInvertedGamma: `align` + `crop`
+* thumbnail_NtbNormalized -> prep5_thumbnail_NtbNormalized: `align` + `crop`
+* prep5_raw_NtbNormalizedAdaptiveInvertedGamma -> prep5_thumbnail_NtbNormalizedAdaptiveInvertedGamma: `rescale`
+* Specify prep2 (alignedBrainstemCrop) cropping box
+* prep5_raw_NtbNormalizedAdaptiveInvertedGamma -> prep2_raw_NtbNormalizedAdaptiveInvertedGamma: `crop`
+* prep2_raw_NtbNormalizedAdaptiveInvertedGamma -> prep2_raw_NtbNormalizedAdaptiveInvertedGammaJpeg: `compress_jpeg`
 
+--------------------------
 
-# jp2/czi -> raw
+# Detailed Steps
 
-## CSHL data
+## jp2 -> raw
+
 Data from CSHL are acquired using Hamamatsu Nanozoomer (0.46 micron/pixel).
 Raw data from the scanner are NDPI files. 
 The raw files are of whole-slides and do not specify the bounding box of individual sections.
@@ -95,17 +73,15 @@ CSHL did the segmentation and sent us images of individual sections re-encoded a
 
 For each image, there are four files. The png and tif are thumbnails. Ignore the lossy jp2 file. The lossless jp2 is the raw data.
 
-### Convert JPEG2000 to TIF
-Use [Kakadu](http://kakadusoftware.com/downloads/). Run `export LD_LIBRARY_PATH=<kdu_dir>:$LD_LIBRARY_PATH; <kdu_bin> -i <in_fp> -o <out_fp>`.
+To convert JPEG2000 to TIFF, use [Kakadu](http://kakadusoftware.com/downloads/). Run `export LD_LIBRARY_PATH=<kdu_dir>:$LD_LIBRARY_PATH; <kdu_bin> -i <in_fp> -o <out_fp>`.
 
 Output are 8-bit (thionin) or 16-bit (fluorescent) TIFFs.
 
-## UCSD data
+## czi -> raw
 UCSD data are acquired using Zeiss Axioscan (0.325 micron/pixel).
 Raw data from the scanner are CZI files. In these files individual sections are recorded as different scenes.
 
-### Convert CZI to TIFF
-Use [CZItoTIFFConverter](http://cifweb.unil.ch/index.php?option=com_content&task=view&id=152&Itemid=2) ([user manual](https://www.unige.ch/medecine/bioimaging/files/7814/3714/1634/CZItoTIFFConverter.pdf)).
+To convert CZI to TIFF, use [CZItoTIFFConverter](http://cifweb.unil.ch/index.php?option=com_content&task=view&id=152&Itemid=2) ([user manual](https://www.unige.ch/medecine/bioimaging/files/7814/3714/1634/CZItoTIFFConverter.pdf)).
 
 Use the graphical interface with the following settings:
 - Create BigTIFF files (check)
@@ -118,7 +94,7 @@ Use the graphical interface with the following settings:
 
 Output are 8-bit (thionin) or 16-bit (fluorescent) TIFFs.
 
-# raw -> Ntb/CHAT or raw -> gray
+## raw -> Ntb/CHAT or raw -> gray
 
 Extract from data a single channel that shows Nissl cytoarchitecture and optionally, another single channel that shows cell markers.
 
@@ -129,15 +105,11 @@ For Axioscan fluorescent images, channels are labeled with meaningful names.
 For Nissl images, convert RGB to grayscale.
 
 
-# Rectify images
+## Rectify images
 
 The images must have anterior at the left, posterior at the right, dorsal at the top and ventral at the bottom.
 
-# Preprocessing a new stack
-
-In this part, the user examines the images, creates tissue masks, aligns the sections in a stack and (optionally) crops the images.
-
-## Initialization
+## Specify input image paths
 
 Create a JSON file that describes the image file paths. The file contains the following information:
 - `raw_data_dirs`: this is a dict with a list of (version, resolution)-tuples as keys. For example they keys might be ('CHAT', 'raw') or ('Ntb', 'thumbnail').
@@ -174,15 +146,30 @@ Make sure the following items are generated under `DATA_DIR/<stack>`:
 - `<stack>_raw_Ntb`. This contains images named `<imageName>_raw_Ntb.tif`. These can be either symbolic links or actual files.
 - `<stack>_raw_CHAT`. This contains images named `<imageName>_raw_CHAT.tif`. These can be either symbolic links or actual files.
 
+
+## Rescale
+
+`rescale.py <in_fp_map> <out_fp_map> <scaling>`
+
+
 ## Intensity normalize fluorescent images
 
-`$ normalize_intensity.py <stack> [input_version] [output_version]`
+`$ normalize_intensity.py <stack> <input_version> <output_version> [--adaptive]`
 
-`<input_version>` default to "Ntb".
-`<output_version>` default to "NtbNormalized"
+For example,
+`normalize_intensity.py Ntb NtbNormalizedAdaptiveInvertedGamma --adaptive`
 
-Make sure the following items are generated under `DATA_DIR/<stack>`:
-- `<stack>_thumbnail_NtbNormalized`
+The detailed steps for intensity normalization are:
+- Load image
+- Rescale mask
+- Compute mean/std for sample regions
+- Interpolate mean map
+- Scale up mean map
+- Interpolate std map
+- Scale up std map
+- Normalize (subtract each pixel's intensity by mean and then divide by std)
+- Save float version
+- Rescale to uint8
 
 ## Compute intra-stack transforms
 
@@ -194,9 +181,10 @@ It then selects an anchor section (by default this is the largest section in the
 On the workstation, with 8 processes, this takes about 30 minutes.
 
 Make sure the following items are generated under `DATA_DIR/<stack>`:
-- `<stack>_elastix_output`
-- `<stack>_prep1_thumbnail_NtbNormalized`
-- `<stack>_anchor.txt`
+- `<stack>_elastix_output/`: pairwise transforms
+- `<stack>_anchor.txt`: anchor section
+- `<stack>_transformTo_<anchorName>.pkl`: to-anchor transforms for every section
+- `<stack>_prep1_thumbnail_NtbNormalized/`: images aligned using the to-anchor transforms
 
 ## Review alignment
 
@@ -216,7 +204,7 @@ If any correction is made, make sure the following items are generated under `DA
 Then re-run
 `$ align.py <stack>`
 
-## Specify cropping
+## Crop
 
 Cropping of the images is desired to focus computation only on the region of interest.
 
@@ -224,7 +212,17 @@ Select "Show cropbox". Draw a 2-D crop box.
 Also set the first section and the last section.
 
 Make sure the following items are generated under `DATA_DIR/<stack>`:
-- `<stack>_alignedTo_<anchorImageName>_cropbox.txt`. This file contains one line (xmin, xmax, ymin, ymax, sec_min, sec_max).
+- `<stack>_alignedTo_<anchorImageName>_prep<prepId>_cropbox.json`: This file contains a dict with the following keys:
+	- `rostral_limit`
+	- `caudal_limit`
+	- `dorsal_limit`
+	- `ventral_limit`
+	- `wrt`
+	- `resolution`
+The coordinates are relative to images of prep_id=1 (alignPadded) in down32 resolution.
+- `<stack>_alignedTo_<anchorImageName>_prep<prepId>_sectionLimits.json`: This file contains a dict with the following keys:
+	- `left_section_limit`
+	- `right_section_limit`
 
 Run
 `$ crop.py <stack>`

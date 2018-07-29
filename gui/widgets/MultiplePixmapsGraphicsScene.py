@@ -28,7 +28,6 @@ class MultiplePixmapsGraphicsScene(QGraphicsScene):
         self.pixmapItems = {l: QGraphicsPixmapItem() for l in pixmap_labels}
         self.data_feeders = {}
 
-        # self.pixmapItem = QGraphicsPixmapItem()
         for pm in self.pixmapItems.itervalues():
             self.addItem(pm)
 
@@ -65,12 +64,7 @@ class MultiplePixmapsGraphicsScene(QGraphicsScene):
     def set_data_feeder(self, feeder, pixmap_label):
         if hasattr(self, 'data_feeders') and pixmap_label in self.data_feeders and self.data_feeders[pixmap_label] == feeder:
             return
-
         self.data_feeders[pixmap_label] = feeder
-
-        # self.active_section = None
-        # self.active_i = None
-
         if hasattr(feeder, 'se'): # Only implemented for image reader, not volume resection reader.
             self.connect(feeder.se, SIGNAL("image_loaded(int)"), self.image_loaded)
 
@@ -83,27 +77,29 @@ class MultiplePixmapsGraphicsScene(QGraphicsScene):
         if indices == self.active_indices:
             return
 
-        old_indices = self.active_indices
+        # old_indices = self.active_indices
 
         print self.id, ': Set active index to', indices, ', emit_changed_signal', emit_changed_signal
 
         self.active_indices = indices
-        # if hasattr(self.data_feeder, 'sections'):
         self.active_sections = {label: self.data_feeders[label].sections[i] for label, i in self.active_indices.iteritems()}
         print self.id, ': Set active section to', self.active_sections
 
-        # try:
-        self.update_image()
-        # except Exception as e: # if failed, do not change active_i or active_section
-        #     raise e
-        #     self.active_indices = old_indices
-        #     self.active_sections = {label: self.data_feeders[label].sections[i] for label, i in old_indices.iteritems()}
+        try:
+            self.update_image()
+        except Exception as e:
+            sys.stderr.write('Failed to update image: %s.\n' % e)
+            for label in self.pixmapItems.keys():
+                self.pixmapItems[label].setVisible(False)
 
         if emit_changed_signal:
             self.active_image_updated.emit()
 
     def set_active_sections(self, sections, emit_changed_signal=True):
-        # raise Exception('Not implemented.')
+        """
+        Args:
+            sections (str or int dict): {set_name: image label} .
+        """
 
         print self.id, ': Set active sections to', sections
 
@@ -116,22 +112,15 @@ class MultiplePixmapsGraphicsScene(QGraphicsScene):
         # sections = self.active_sections
         # indices = {label: self.data_feeders[label].all_sections.index(sec) for label, sec in sections.iteritems()}
 
-        for label, idx in indices.iteritems():
-            print label, idx
-            image = self.data_feeders[label].retrieve_i(i=idx)
-            pixmap = QPixmap.fromImage(image)
-            self.pixmapItems[label].setPixmap(pixmap)
-            self.pixmapItems[label].setVisible(True)
-
+        for set_name, idx in indices.iteritems():
+            try:
+                qimage = self.data_feeders[set_name].retrieve_i(i=idx)
+                pixmap = QPixmap.fromImage(qimage)
+                self.pixmapItems[set_name].setPixmap(pixmap)
+                self.pixmapItems[set_name].setVisible(True)
+            except:
+                sys.stderr.write("%s: set_name=%s, index=%s fails to show. Skip.\n" % (self.id, set_name, idx))
         # self.set_active_indices(indices)
-
-    # def set_downsample_factor(self, downsample):
-    #     for feeder in self.data_feeders.values():
-    #         if feeder.downsample == downsample:
-    #             continue
-    #         feeder.set_downsample_factor(downsample)
-    #
-    #     self.update_image()
 
     def show_next(self, cycle=False):
         indices = {}
@@ -150,7 +139,6 @@ class MultiplePixmapsGraphicsScene(QGraphicsScene):
             else:
                 indices[pixmap_label] = max(idx - 1, 0)
         self.set_active_indices(indices)
-
 
     def show_context_menu(self, pos):
         pass

@@ -215,8 +215,8 @@ class ImageDataFeeder_v2(object):
                 qimage = numpy_to_qimage(numpy_image)
             else:
                 raise Exception('Either filepath or numpy_image must be provided.')
-        # else:
-        #     print qimage.width()
+        else:
+            assert qimage.width() > 0, 'QImage has 0 size'
 
         print '%s: set image %s %s' % (self.name, resolution, sec)
         self.image_cache[resolution][sec] = qimage
@@ -248,11 +248,11 @@ class ImageDataFeeder_v2(object):
             else:
                 qimage = QImage(fp)
 
-            # print 1, qimage.width()
+            if qimage.width() == 0:
+                sys.stderr.write('QImage has 0 size. Skip setting image for %s.\n' % lbl)
+                continue
+
             self.set_image(qimage=qimage, sec=lbl, resolution=resolution)
-        #
-        # for label, im in self.image_cache[self.resolution].iteritems():
-        #     print 6, label, im.width()
 
     def compute_dimension(self):
 
@@ -283,14 +283,13 @@ class ImageDataFeeder_v2(object):
             QImage
         """
 
-
         if resolution is None:
             resolution = self.resolution
 
         if sec is None:
             sec = self.sections[i]
 
-        print 'retrieving', i, sec,resolution
+        print self.name, 'retrieving', i, sec,resolution
 
         if resolution not in self.image_cache:
             self.image_cache[resolution] = {}
@@ -334,6 +333,7 @@ class ImageDataFeeder_v2(object):
                 sys.stderr.write('wait for image to load: %.2f seconds\n' % (time.time() - t1))
 
         if sec in self.image_cache[resolution]:
+            assert self.image_cache[resolution][sec].width() > 0, "BUG!"
             return self.image_cache[resolution][sec]
         else:
             raise Exception("Cannot retrieve image %s" % sec)

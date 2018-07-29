@@ -112,7 +112,7 @@ class ZoomableBrowsableGraphicsScene(QGraphicsScene):
         if i == self.active_i:
             return
 
-        old_i = self.active_i
+        # old_i = self.active_i
 
         print self.id, ': Set active index to', i, ', emit_changed_signal', emit_changed_signal
 
@@ -167,28 +167,11 @@ class ZoomableBrowsableGraphicsScene(QGraphicsScene):
             sec: image label
         """
 
-        t = time.time()
         i, _ = self.get_requested_index_and_section(i=i, sec=sec)
-        sys.stderr.write("get_requested_index_and_section: %.2f seconds.\n" % (time.time() - t))
-
-        t = time.time()
         qimage = self.data_feeder.retrieve_i(i=i)
-        sys.stderr.write("data_feeder.retrieve_i: %.2f seconds.\n" % (time.time() - t))
-
-        if qimage.width() == 0:
-            raise Exception("Qimage has 0 size")
-
-        t = time.time()
         pixmap = QPixmap.fromImage(qimage)
-        sys.stderr.write("generate pixmap: %.2f seconds.\n" % (time.time() - t))
-
-        t = time.time()
         self.pixmapItem.setPixmap(pixmap)
-        sys.stderr.write("set pixmap: %.2f seconds.\n" % (time.time() - t))
-
-        t = time.time()
         self.pixmapItem.setVisible(True)
-        sys.stderr.write("set visible: %.2f seconds.\n" % (time.time() - t))
 
     def show_next(self, cycle=False):
         if cycle:

@@ -193,6 +193,10 @@ class ImageDataFeeder_v2(object):
         self.compute_dimension()
 
     def set_image(self, sec=None, i=None, qimage=None, numpy_image=None, fp=None, downsample=None, resolution=None):
+        """
+        Args:
+            sec (str or int): any label. (sec is a misnomer, should be label)
+        """
 
         if resolution is None:
             resolution = self.resolution
@@ -205,11 +209,14 @@ class ImageDataFeeder_v2(object):
 
         if qimage is None:
             if fp is not None:
+                assert os.path.exists(fp), "File %s does not exist." % fp
                 qimage = QImage(fp)
             elif numpy_image is not None:
                 qimage = numpy_to_qimage(numpy_image)
             else:
                 raise Exception('Either filepath or numpy_image must be provided.')
+        # else:
+        #     print qimage.width()
 
         print '%s: set image %s %s' % (self.name, resolution, sec)
         self.image_cache[resolution][sec] = qimage
@@ -231,18 +238,21 @@ class ImageDataFeeder_v2(object):
 
         assert len(labels) == len(filenames), "Length of labels is different from length of filenames."
 
-        for lbl, fn in zip(labels, filenames):
+        for lbl, fp in zip(labels, filenames):
             if load_with_cv2: # For loading output tif images from elastix, directly QImage() causes "foo: Can not read scanlines from a tiled image."
-                img = cv2.imread(fn)
+                img = cv2.imread(fp)
                 if img is None:
-                    sys.stderr.write("ERROR: cv2 cannot read %s.\n" % fn)
+                    sys.stderr.write("ERROR: cv2 cannot read %s.\n" % fp)
                     continue
                 qimage = numpy_to_qimage(img)
             else:
-                qimage = QImage(fn)
+                qimage = QImage(fp)
 
-            # self.set_image(qimage=qimage, sec=lbl, downsample=downsample)
+            # print 1, qimage.width()
             self.set_image(qimage=qimage, sec=lbl, resolution=resolution)
+        #
+        # for label, im in self.image_cache[self.resolution].iteritems():
+        #     print 6, label, im.width()
 
     def compute_dimension(self):
 
@@ -268,13 +278,19 @@ class ImageDataFeeder_v2(object):
     def retrieve_i(self, i=None, sec=None, resolution=None):
         """
         Retrieve the i'th image in self.sections. Throws an exception if the image cannot be retrieved.
+
+        Returns:
+            QImage
         """
+
 
         if resolution is None:
             resolution = self.resolution
 
         if sec is None:
             sec = self.sections[i]
+
+        print 'retrieving', i, sec,resolution
 
         if resolution not in self.image_cache:
             self.image_cache[resolution] = {}
@@ -313,12 +329,10 @@ class ImageDataFeeder_v2(object):
                 t1 = time.time()
                 for t in range(100):
                     time.sleep(.1)
-                    # if sec in self.image_cache[downsample]:
                     if sec in self.image_cache[resolution]:
                         break
                 sys.stderr.write('wait for image to load: %.2f seconds\n' % (time.time() - t1))
 
-        # return self.image_cache[downsample][sec]
         if sec in self.image_cache[resolution]:
             return self.image_cache[resolution][sec]
         else:

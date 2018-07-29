@@ -480,10 +480,6 @@ class PreprocessGUI(QMainWindow, Ui_PreprocessGui):
         if not hasattr(self, 'currently_showing'):
             self.currently_showing = 'original'
 
-        # self.sorted_filenames =
-        # self.valid_section_filenames = self.get_valid_sorted_filenames()
-        # self.valid_section_indices = [self.sorted_filenames.index(fn) + 1 for fn in self.valid_section_filenames]
-
         if not hasattr(self, 'anchor_fn'):
             anchor_fp = DataManager.get_anchor_filename_filename(self.stack)
             if os.path.exists(anchor_fp):
@@ -502,13 +498,13 @@ class PreprocessGUI(QMainWindow, Ui_PreprocessGui):
         if self.currently_showing == 'original':
 
             filenames_to_load = self.get_sorted_filenames(valid_only=self.show_valid_only)
-            print filenames_to_load
 
             if not hasattr(self, 'ordered_images_feeder') or self.ordered_images_feeder is None:
                 self.ordered_images_feeder = ImageDataFeeder_v2('ordered image feeder', stack=self.stack,
-                                    sections=filenames_to_load, resolution=self.tb_res, use_thread=False, auto_load=False)
+                                            sections=filenames_to_load, resolution=self.tb_res, use_thread=False, auto_load=False)
                 self.ordered_images_feeder.set_images(labels=filenames_to_load,
-                                                filenames=[DataManager.get_image_filepath_v2(stack=self.stack, fn=fn, prep_id=None, version=self.tb_version, resol=self.tb_res)
+                                                filenames=[DataManager.get_image_filepath_v2(stack=self.stack, fn=fn, prep_id=None,
+                                                version=self.tb_version, resol=self.tb_res)
                                                                             for fn in filenames_to_load],
                                                 resolution=self.tb_res, load_with_cv2=False)
                 self.ordered_images_feeder.set_images(labels=['Placeholder'],
@@ -533,8 +529,10 @@ class PreprocessGUI(QMainWindow, Ui_PreprocessGui):
             if not hasattr(self, 'aligned_images_feeder') or self.aligned_images_feeder is None:
                 self.aligned_images_feeder = ImageDataFeeder_v2('aligned image feeder', stack=self.stack,
                                     sections=filenames_to_load, resolution=self.tb_res, use_thread=False, auto_load=False)
+                print [DataManager.get_image_filepath_v2(stack=self.stack, fn=fn, prep_id='alignedPadded', version=self.tb_version, resol=self.tb_res)
+                                            for fn in filenames_to_load]
                 self.aligned_images_feeder.set_images(labels=filenames_to_load,
-                                                filenames=[DataManager.get_image_filepath_v2(stack=self.stack, fn=fn, prep_id=1, version=self.tb_version, resol=self.tb_res)
+                                                filenames=[DataManager.get_image_filepath_v2(stack=self.stack, fn=fn, prep_id='alignedPadded', version=self.tb_version, resol=self.tb_res)
                                                                             for fn in filenames_to_load],
                                                 resolution=self.tb_res, load_with_cv2=False)
 

@@ -7,7 +7,7 @@ In the following explanation, each step is characterized by a pair of image set 
 
 ## Convert data from scanner format to TIF
 
-* jp2 -> raw (for JPEG2000 data)
+* jp2 -> raw (for JPEG2000 data): `jp2_to_tiff.py <brain> <input_spec>`
 * czi -> raw (for czi data)
 
 ## For thionin (brightfield) data

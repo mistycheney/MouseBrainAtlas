@@ -11,8 +11,8 @@ In the following explanation, each step is characterized by a pair of image set 
 * czi -> raw (for czi data)
 
 ## For thionin (brightfield) data
-* raw -> thumbnail: `resize`
-`resize.py <in_fp_map> <out_fp_map> 0.03125`
+* If thumbnails (downsampled 32 times) are not provided:
+	* raw -> thumbnail: `resize`, `resize.py <in_fp_map> <out_fp_map> 0.03125`
 * Loop:
 	* Compute pairwise tranforms using thumbnail: `align`
 	* Compose pairwise transforms to get each image's transform to anchor: `compose`

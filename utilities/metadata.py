@@ -16,52 +16,13 @@ if 'ENABLE_UPLOAD_S3' in os.environ:
 else:
     ENABLE_UPLOAD_S3 = False
     sys.stderr.write("ENABLE_UPLOAD_S3 is not set, default to False.\n")
-    
+
 if 'ENABLE_DOWNLOAD_S3' in os.environ:
     ENABLE_DOWNLOAD_S3 = bool(int(os.environ['ENABLE_DOWNLOAD_S3']))
     sys.stderr.write("ENABLE_DOWNLOAD_S3 set to %s\n" % ENABLE_DOWNLOAD_S3)
 else:
     ENABLE_DOWNLOAD_S3 = False
     sys.stderr.write("ENABLE_DOWNLOAD_S3 is not set, default to False.\n")
-        
-# if hostname.endswith('sdsc.edu'):
-#     print 'Setting environment for Gordon'
-#     ROOT_DIR = '/oasis/projects/nsf/csd395/yuncong'
-#     RAW_DATA_DIR = '/oasis/projects/nsf/csd395/yuncong/CSHL_data'
-#     data_dir = '/oasis/projects/nsf/csd395/yuncong/CSHL_data_processed'
-#     DATA_DIR = '/oasis/projects/nsf/csd395/yuncong/CSHL_data_processed'
-#     thumbnail_data_dir = data_dir
-#     THUMBNAIL_DATA_DIR = '/oasis/projects/nsf/csd395/yuncong/CSHL_data_processed'
-#     REGISTRATION_PARAMETERS_ROOTDIR = '/oasis/projects/nsf/csd395/yuncong/CSHL_registration_parameters'
-#     REGISTRATION_VIZ_ROOTDIR = '/oasis/projects/nsf/csd395/yuncong/CSHL_registration_visualization'
-#     VOLUME_ROOTDIR = '/oasis/projects/nsf/csd395/yuncong/CSHL_volumes'
-#     labelingViz_root = '/oasis/projects/nsf/csd395/yuncong/CSHL_annotationsViz'
-#     annotationViz_rootdir = '/oasis/projects/nsf/csd395/yuncong/CSHL_annotationsViz'
-#     annotation_rootdir = '/oasis/projects/nsf/csd395/yuncong/CSHL_data_labelings_losslessAlignCropped/'
-#     annotation_midbrainIncluded_v2_rootdir = '/oasis/projects/nsf/csd395/yuncong/CSHL_labelings_v3/'
-#     ANNOTATION_ROOTDIR = '/oasis/projects/nsf/csd395/yuncong/CSHL_labelings_v3/'
-#     patch_training_features_rootdir = '/home/yuncong/csd395/CSHL_patch_features_Sat16ClassFinetuned_v2_train'
-#     patch_rootdir = '/oasis/projects/nsf/csd395/yuncong/CSHL_data_patches/'
-#     CLF_ROOTDIR = '/oasis/projects/nsf/csd395/yuncong/CSHL_classifiers'
-#     CLF_NISSL_ROOTDIR = '/home/yuncong/csd395/CSHL_patch_features_Sat16ClassFinetuned_v2_classifiers'
-#     CLF_NTBLUE_ROOTDIR = '/home/yuncong/csd395/CSHL_patch_features_Sat16ClassFinetuned_v2_classifiers_neurotraceBlue'
-#     CELLS_ROOTDIR = '/home/yuncong/csd395/CSHL_cells_v2'
-#     DETECTED_CELLS_ROOTDIR = os.path.join(CELLS_ROOTDIR, 'detected_cells')
-#     CELL_EMBEDDING_ROOTDIR = os.path.join(CELLS_ROOTDIR, 'embedding')
-#     D3JS_ROOTDIR = os.path.join(CELLS_ROOTDIR, 'd3js')
-#     CELL_FEATURES_CLF_ROOTDIR = os.path.join(CELLS_ROOTDIR, 'classifiers')
-
-#     PATCH_FEATURES_ROOTDIR = '/oasis/projects/nsf/csd395/yuncong/CSHL_patch_features'
-#     SPARSE_SCORES_ROOTDIR = '/oasis/projects/nsf/csd395/yuncong/CSHL_sparse_scoremaps'
-#     SCOREMAPS_ROOTDIR = '/oasis/projects/nsf/csd395/yuncong/CSHL_dense_scoremaps'
-#     SCOREMAP_VIZ_ROOTDIR = '/oasis/projects/nsf/csd395/yuncong/CSHL_scoremap_viz'
-#     HESSIAN_ROOTDIR = '/oasis/projects/nsf/csd395/yuncong/CSHL_hessians'
-#     WORKSTATION_ROOTDIR = '/media/yuncong/BstemAtlasData/CSHL_data_processed'
-
-#     S3_DATA_BUCKET = 'mousebrainatlas-data'
-#     REPO_DIR = os.environ['REPO_DIR']
-#     ON_AWS = False
-#     ELASTIX_BIN = '/oasis/projects/nsf/csd395/yuncong/elastix_linux64_v4.7/bin/elastix'
 
 if hostname == 'yuncong-MacbookPro':
     print 'Setting environment for Local Macbook Pro'
@@ -69,9 +30,21 @@ if hostname == 'yuncong-MacbookPro':
 
     # REPO_DIR = '/home/yuncong/Brain' # use os.environ['REPO_DIR'] instead
     REPO_DIR = os.environ['REPO_DIR']
-    ROOT_DIR = '/home/yuncong'
-    DATA_ROOTDIR = '/media/yuncong/YuncongPublic/'
-    THUMBNAIL_DATA_ROOTDIR = ROOT_DIR
+
+    if 'ROOT_DIR' in os.environ:
+        ROOT_DIR = os.environ['ROOT_DIR']
+    else:
+        ROOT_DIR = '/home/yuncong'
+
+    if 'DATA_ROOTDIR' in os.environ:
+        DATA_ROOTDIR = os.environ['DATA_ROOTDIR']
+    else:
+        DATA_ROOTDIR = '/media/yuncong/YuncongPublic/'
+
+    if 'THUMBNAIL_DATA_ROOTDIR' in os.environ:
+        THUMBNAIL_DATA_ROOTDIR = os.environ['THUMBNAIL_DATA_ROOTDIR']
+    else:
+        THUMBNAIL_DATA_ROOTDIR = ROOT_DIR
 
     RAW_DATA_DIR = os.path.join(ROOT_DIR, 'CSHL_data')
     DATA_DIR = os.path.join(DATA_ROOTDIR, 'CSHL_data_processed')
@@ -79,8 +52,10 @@ if hostname == 'yuncong-MacbookPro':
 
     # VOLUME_ROOTDIR = '/home/yuncong/CSHL_volumes'
     VOLUME_ROOTDIR = os.path.join(DATA_ROOTDIR, 'CSHL_volumes')
-    MESH_ROOTDIR =  '/home/yuncong/CSHL_meshes'
-    REGISTRATION_PARAMETERS_ROOTDIR = '/home/yuncong/CSHL_registration_parameters'
+    # MESH_ROOTDIR =  '/home/yuncong/CSHL_meshes'
+    MESH_ROOTDIR = os.path.join(ROOT_DIR, 'CSHL_meshes')
+    # REGISTRATION_PARAMETERS_ROOTDIR = '/home/yuncong/CSHL_registration_parameters'
+    REGISTRATION_PARAMETERS_ROOTDIR = os.path.join(ROOT_DIR, 'CSHL_registration_parameters')
 
     PATCH_FEATURES_ROOTDIR = os.path.join(DATA_ROOTDIR, 'CSHL_patch_features')
 
@@ -141,7 +116,8 @@ elif hostname == 'yuncong-Precision-WorkStation-T7500' and username == 'yuncong'
 
     THUMBNAIL_DATA_DIR = os.path.join(THUMBNAIL_DATA_ROOTDIR, 'CSHL_data_processed')
     VOLUME_ROOTDIR = os.path.join(ROOT_DIR, 'CSHL_volumes')
-    MESH_ROOTDIR =  '/home/yuncong/CSHL_meshes'
+    # MESH_ROOTDIR =  '/home/yuncong/CSHL_meshes'
+    MESH_ROOTDIR = os.path.join(ROOT_DIR, 'CSHL_meshes')
 
     # annotation_rootdir =  os.path.join(ROOT_DIR, 'CSHL_data_labelings_losslessAlignCropped')
 #     annotation_midbrainIncluded_v2_rootdir = '/home/yuncong/CSHL_labelings_v3/'
@@ -202,7 +178,8 @@ elif hostname == 'yuncong-Precision-WorkStation-T7500' and username == 'alexn':
 
     THUMBNAIL_DATA_DIR = os.path.join(THUMBNAIL_DATA_ROOTDIR, 'CSHL_data_processed')
     VOLUME_ROOTDIR = os.path.join(ROOT_DIR, 'CSHL_volumes')
-    MESH_ROOTDIR =  '/home/alexn/CSHL_meshes'
+    # MESH_ROOTDIR =  '/home/alexn/CSHL_meshes'
+    MESH_ROOTDIR = os.path.join(ROOT_DIR, 'CSHL_meshes')
 
     # annotation_rootdir =  os.path.join(ROOT_DIR, 'CSHL_data_labelings_losslessAlignCropped')
 #     annotation_midbrainIncluded_v2_rootdir = '/home/yuncong/CSHL_labelings_v3/'
@@ -549,7 +526,7 @@ all_alt_nissl_ntb_stacks = ['MD653', 'MD652', 'MD642']
 all_alt_nissl_tracing_stacks = ['MD657', 'MD658', 'MD661', 'MD662']
 # all_stacks = all_nissl_stacks + all_ntb_stacks
 all_stacks = all_nissl_stacks + all_ntb_stacks + all_alt_nissl_ntb_stacks + all_alt_nissl_tracing_stacks + all_dk_ntb_stacks \
-                + ['DEMO999'] 
+                + ['DEMO999']
 all_annotated_nissl_stacks = ['MD585', 'MD589', 'MD594']
 all_annotated_ntb_stacks = ['MD635']
 all_annotated_stacks = all_annotated_nissl_stacks + all_annotated_ntb_stacks

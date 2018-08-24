@@ -40,12 +40,16 @@ experiments = pd.read_csv(args.experiments_config, index_col=0).T.to_dict()
 
 atlas_name = 'atlasV7'
 atlas_spec = dict(name=atlas_name, resolution='10.0um', vol_type='score')
-SNR_R_vol_10um, SNR_R_ori_10um_wrt_canonicalAtlasSpace =\
-DataManager.load_original_volume_v2(stack_spec=atlas_spec, structure='SNR_R', bbox_wrt='canonicalAtlasSpace')
-SNR_L_nominal_location_1um_wrt_canonicalAtlasSpace = load_data(DataManager.get_structure_mean_positions_filepath(atlas_name=atlas_name, resolution='1um'))['SNR_L']
-SNR_L_nominal_location_10um_wrt_canonicalAtlasSpace = SNR_L_nominal_location_1um_wrt_canonicalAtlasSpace / 10.
-SNR_L_vol_10um, SNR_L_origin_10um_wrt_canonicalAtlasSpace = \
-mirror_volume_v2(SNR_R_vol_10um, SNR_L_nominal_location_10um_wrt_canonicalAtlasSpace)
+
+SNR_L_vol_10um, SNR_L_origin_10um_wrt_canonicalAtlasSpace =\
+DataManager.load_original_volume_v2(stack_spec=atlas_spec, structure='SNR_L', bbox_wrt='canonicalAtlasSpace')
+
+# SNR_R_vol_10um, SNR_R_ori_10um_wrt_canonicalAtlasSpace =\
+# DataManager.load_original_volume_v2(stack_spec=atlas_spec, structure='SNR_R', bbox_wrt='canonicalAtlasSpace')
+# SNR_L_nominal_location_1um_wrt_canonicalAtlasSpace = load_data(DataManager.get_structure_mean_positions_filepath(atlas_name=atlas_name, resolution='1um'))['SNR_L']
+# SNR_L_nominal_location_10um_wrt_canonicalAtlasSpace = SNR_L_nominal_location_1um_wrt_canonicalAtlasSpace / 10.
+# SNR_L_vol_10um, SNR_L_origin_10um_wrt_canonicalAtlasSpace = \
+# mirror_volume_v2(SNR_R_vol_10um, SNR_L_nominal_location_10um_wrt_canonicalAtlasSpace)
 
 level = 0.000001
 num_simplify_iter = 4

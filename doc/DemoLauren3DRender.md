@@ -1,2 +1,3 @@
-- download `lauren_experiments.csv`
+- run `python donwload_render_demo_data.py`
+  - download `lauren_experiments.csv`
 - run `python demo_vtk_render_atlas.py`

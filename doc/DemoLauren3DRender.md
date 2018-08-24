@@ -1,3 +1,5 @@
-- run `python donwload_render_demo_data.py`
-  - download `lauren_experiments.csv`
-- run `python demo_vtk_render_atlas.py`
+```
+cd Brain/
+python demo/donwload_render_demo_data.py
+ENABLE_UPLOAD_S3=0 ENABLE_DOWNLOAD_S3=0 python demo/demo_vtk_render_atlas.py --experiments_config demo/lauren_experiments.csv 
+```

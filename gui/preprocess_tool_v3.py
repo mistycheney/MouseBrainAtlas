@@ -452,13 +452,6 @@ class PreprocessGUI(QMainWindow, Ui_PreprocessGui):
 
     ########################## END OF EDIT TRANSFORM ######################################3
 
-
-    # def sort(self):
-    #     """
-    #     Sort images.
-    #     """
-    #     self.update_sorted_sections_gscene_from_sorted_filenames()
-
     def save_everything(self):
 
         # Dump preprocessing info

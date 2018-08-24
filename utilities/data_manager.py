@@ -208,13 +208,13 @@ class CoordinatesConverter(object):
         self.resolutions[resol_name] = {'um': resol_um}
 
     def get_resolution_um(self, resol_name):
-        
+
         if resol_name in self.resolutions:
             res_um = self.resolutions[resol_name]['um']
         else:
             res_um = convert_resolution_string_to_um(resolution=resol_name, stack=self.stack)
         return res_um
-        
+
     def convert_three_view_frames(self, p, base_frame_name, in_plane, out_plane, p_resol):
         """
         Convert among the three frames specified by the second method in this presentation
@@ -272,12 +272,12 @@ class CoordinatesConverter(object):
             print p, in_resolution, out_resolution
         assert p.ndim == 2
 
-        
+
         import re
         m = re.search('^(.*?)_(.*?)_(.*?)$', in_resolution)
         if m is not None:
             in_x_resol, in_y_resol, in_z_resol = m.groups()
-            assert in_x_resol == in_y_resol                    
+            assert in_x_resol == in_y_resol
             uv_um = p[..., :2] * self.get_resolution_um(resol_name=in_x_resol)
             d_um = np.array([SECTION_THICKNESS * (sec - 0.5) for sec in p[..., 2]])
             p_um = np.column_stack([uv_um, d_um])
@@ -305,11 +305,11 @@ class CoordinatesConverter(object):
                 else:
                     p_um = p * convert_resolution_string_to_um(resolution=in_resolution, stack=self.stack)
 
-                    
+
         m = re.search('^(.*?)_(.*?)_(.*?)$', out_resolution)
         if m is not None:
             out_x_resol, out_y_resol, out_z_resol = m.groups()
-            assert out_x_resol == out_y_resol                    
+            assert out_x_resol == out_y_resol
             uv_outResol = p_um[..., :2] / self.get_resolution_um(resol_name=out_x_resol)
             sec_outResol = np.array([1 + int(np.floor(d_um / SECTION_THICKNESS)) for d_um in np.atleast_1d(p_um[..., 2])])
             p_outResol = np.column_stack([np.atleast_2d(uv_outResol), np.atleast_1d(sec_outResol)])
@@ -474,12 +474,12 @@ class CoordinatesConverter(object):
         """
 
         if in_wrt == 'original' and out_wrt == 'alignedPadded':
-            
+
             in_x_resol, in_y_resol, in_z_resol = in_resolution.split('_')
             assert in_x_resol == in_y_resol
             assert in_z_resol == 'section'
             in_image_resolution = in_x_resol
-            
+
             out_x_resol, out_y_resol, out_z_resol = out_resolution.split('_')
             assert out_x_resol == out_y_resol
             assert out_z_resol == 'section'
@@ -508,20 +508,20 @@ class CoordinatesConverter(object):
                            sec * np.ones((len(uv_wrt_alignedPadded_outResol_curr_section),))])
 
             return p_wrt_outdomain_outResol
-                
+
         elif in_wrt == 'alignedPadded' and out_wrt == 'original':
 
-            
+
             in_x_resol, in_y_resol, in_z_resol = in_resolution.split('_')
             assert in_x_resol == in_y_resol
             assert in_z_resol == 'section'
             in_image_resolution = in_x_resol
-            
+
             out_x_resol, out_y_resol, out_z_resol = out_resolution.split('_')
             assert out_x_resol == out_y_resol
             assert out_z_resol == 'section'
             out_image_resolution = out_x_resol
-            
+
             uv_um = p[..., :2] * convert_resolution_string_to_um(stack=stack, resolution=in_image_resolution)
 
             p_wrt_outdomain_outResol = np.zeros(p.shape)
@@ -2236,7 +2236,7 @@ class DataManager(object):
                       levels=.5):
         """
         Args:
-            levels (list of float): levels to load
+            levels (float or a list of float): levels to load
         """
 
         kwargs = locals()
@@ -4718,13 +4718,13 @@ class DataManager(object):
                 resol = 'lossless'
 
         if section is not None:
-            
+
             if sorted_filenames_fp is not None:
-                _, sections_to_filenames = DataManager.load_sorted_filenames(fp=sorted_filenames_fp)                
+                _, sections_to_filenames = DataManager.load_sorted_filenames(fp=sorted_filenames_fp)
                 fn = sections_to_filenames[section]
             else:
                 fn = metadata_cache['sections_to_filenames'][stack][section]
-                
+
             if is_invalid(fn=fn):
                 raise Exception('Section is invalid: %s.' % fn)
         else:
@@ -5435,7 +5435,7 @@ def generate_metadata_cache():
             metadata_cache['image_shape'][stack] = DataManager.get_image_dimension(stack)
         except:
             pass
-        
+
     return metadata_cache
 
 

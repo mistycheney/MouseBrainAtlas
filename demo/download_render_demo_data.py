@@ -25,6 +25,18 @@ def download_to_demo(fp):
     execute_command('wget -N -P \"%s\" \"%s\"' % (os.path.dirname(demo_fp), url))
     return demo_fp
 
+##### For 3D rendering demo #####
+
+# Download atlasV7 meshes.
+atlas_name = 'atlasV7'
+atlas_spec = dict(name=atlas_name, resolution='10.0um', vol_type='score')
+
+for structure in all_known_structures_sided:
+    for level in [.5]:
+        fp = DataManager.get_mesh_filepath_v2(brain_spec=atlas_spec, structure=structure, level=level)
+        rel_fp = relative_to_local(fp, local_root=DATA_ROOTDIR)
+        download_to_demo(rel_fp)  
+
 ##### For registration demo. #####
 
 fp = DataManager.get_sorted_filenames_filename(stack='DEMO999')

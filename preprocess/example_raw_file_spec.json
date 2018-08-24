@@ -1,0 +1,14 @@
+{
+"data_dirs": [
+	{"version": null, "resolution": "raw", "path": "/nfs/birdstore-brainbucket1/Active_Atlas_Data/CSHL_NanoZoomer/MD662_DGrabies"},
+	{"version": null, "resolution": "thumbnail", "path": "/nfs/birdstore-brainbucket1/Active_Atlas_Data/CSHL_NanoZoomer/MD662_DGrabies"}
+	],
+"filepath_to_imageName_mapping": [
+	{"version": null, "resolution": "raw", "path": "/nfs/birdstore-brainbucket1/Active_Atlas_Data/CSHL_NanoZoomer/MD662_DGrabies/(.*)?_lossless.jp2"},
+	{"version": null, "resolution": "thumbnail", "path": "/nfs/birdstore-brainbucket1/Active_Atlas_Data/CSHL_NanoZoomer/MD662_DGrabies/(.*)?.tif"}
+	],
+"imageName_to_filepath_mapping": [
+        {"version": null, "resolution": "raw", "path": "/nfs/birdstore-brainbucket1/Active_Atlas_Data/CSHL_NanoZoomer/MD662_DGrabies/%s_lossless.jp2"},
+        {"version": null, "resolution": "thumbnail", "path": "/nfs/birdstore-brainbucket1/Active_Atlas_Data/CSHL_NanoZoomer/MD662_DGrabies/%s.tif"}
+        ]
+}

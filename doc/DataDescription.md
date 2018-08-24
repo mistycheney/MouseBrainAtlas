@@ -8,16 +8,16 @@ A processed image has extension either `.tif` or `.jpg`. Data type is either uni
 Volumes
 =======
 
-A volume is represented by:
-- a 3-D array stored as `bp` file, which can be saved/read using [bloscpack](https://github.com/Blosc/bloscpack) (`pack_ndarray_file()` and `unpack_ndarray_file()`). Naming convention is `<volume_spec>.bp`.
+Each volume has a textual identifier `volume_spec`. The `volume_spec` of particular volume instance is defined in the page that describes the system component that generates this volume instance.
+
+A volume is stored as two files:
+- a 3-D array stored as `bp` file, which can be saved/read using [bloscpack](https://github.com/Blosc/bloscpack#python-api) (`pack_ndarray_file` and `unpack_ndarray_file`). Naming convention is `<volume_spec>.bp`.
 - a (3,) int array representing the origin of this array with respect to _wholebrain_ (see [Definition of frames]), stored as `txt` file. Naming convention is `<volume_spec>_origin_wrt_<ref>.txt` where `<ref>` can be `wholebrain` or `canonicalAtlasSpace`.
 
 The following _volume types_ are defined, each with a different 3-d array data type:
 - `annotationAsScore`: float, binary either 0 or 1
 - `score`: float between 0 and 1
 - `intensity`: uint8
-
-`volume_spec` of particular data is defined in individual component pages.
 
 Registration results
 ===========

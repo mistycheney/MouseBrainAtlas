@@ -1,5 +1,5 @@
 ```
-git clone https://github.com/mistycheney/MouseBrainAtlas Brain
+git clone https://github.com/mistycheney/MouseBrainAtlas /home/yuncong/Brain
 cd Brain/
 source demo/set_env_variables.sh
 python demo/donwload_render_demo_data.py

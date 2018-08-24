@@ -29,7 +29,7 @@ def download_to_demo(fp):
 
 fp = DataManager.get_sorted_filenames_filename(stack='DEMO999')
 rel_fp = relative_to_local(fp, local_root=DATA_ROOTDIR)
-sorted_filenames_fp_demo = download_to_demo(rel_fp)
+download_to_demo(rel_fp)
 
 fp = DataManager.get_anchor_filename_filename(stack='DEMO999')
 rel_fp = relative_to_local(fp, local_root=DATA_ROOTDIR)
@@ -70,7 +70,7 @@ for name_s in ['3N_R', '4N_R', '3N_R_surround_200um', '4N_R_surround_200um','12N
 # For visualization demo.    
 
 for sec in range(221, 238):
-    fp = DataManager.get_image_filepath_v2(stack='DEMO999', prep_id=2, resol='raw', version='NtbNormalizedAdaptiveInvertedGammaJpeg', section=sec, sorted_filenames_fp=sorted_filenames_fp_demo)
+    fp = DataManager.get_image_filepath_v2(stack='DEMO999', prep_id=2, resol='raw', version='NtbNormalizedAdaptiveInvertedGammaJpeg', section=sec)
     rel_fp = relative_to_local(fp, local_root=DATA_ROOTDIR)
     download_to_demo(rel_fp)
     

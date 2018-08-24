@@ -1384,11 +1384,12 @@ class DataManager(object):
         Get the mapping between section index and image filename.
 
         Returns:
-            Two dicts: filename_to_section, section_to_filename
+            filename_to_section, section_to_filename
         """
 
         if fp is None:
-            fp = DataManager.get_sorted_filenames_filename(stack)
+            assert stack is not None, 'Must specify stack'
+            fp = DataManager.get_sorted_filenames_filename(stack=stack)
 
         # download_from_s3(fp, local_root=THUMBNAIL_DATA_ROOTDIR, redownload=redownload)
         filename_to_section, section_to_filename = DataManager.load_data(fp, filetype='file_section_map')
@@ -1405,13 +1406,22 @@ class DataManager(object):
 
 
     @staticmethod
-    def load_consecutive_section_transform(stack, moving_fn, fixed_fn, elastix_output_dir):
+    def load_consecutive_section_transform(moving_fn, fixed_fn, elastix_output_dir, custom_output_dir=None, stack=None):
+        """
+        Load pairwise transform.
+        
+        Returns:
+            (3,3)-array.
+        """
+        
+        if custom_output_dir is None:
+            custom_output_dir = os.path.join(DATA_DIR, stack, stack + '_custom_transforms')
 
         from preprocess_utilities import parse_elastix_parameter_file
 
-        custom_tf_fp = os.path.join(DATA_DIR, stack, stack + '_custom_transforms', moving_fn + '_to_' + fixed_fn, moving_fn + '_to_' + fixed_fn + '_customTransform.txt')
+        custom_tf_fp = os.path.join(custom_output_dir, moving_fn + '_to_' + fixed_fn, moving_fn + '_to_' + fixed_fn + '_customTransform.txt')
 
-        custom_tf_fp2 = os.path.join(DATA_DIR, stack, stack + '_custom_transforms', moving_fn + '_to_' + fixed_fn, 'TransformParameters.0.txt')
+        custom_tf_fp2 = os.path.join(custom_output_dir, moving_fn + '_to_' + fixed_fn, 'TransformParameters.0.txt')
 
         if os.path.exists(custom_tf_fp):
             # if custom transform is provided
@@ -4292,12 +4302,12 @@ class DataManager(object):
 
 
     @staticmethod
-    def get_dnn_features_filepath_v2(stack, prep_id, win_id,
-                              normalization_scheme,
-                                             model_name, what='features',
-                                    sec=None, fn=None, timestamp=None):
+    def get_dnn_features_filepath_v2(stack, prep_id, win_id, normalization_scheme, model_name, 
+                                     what='features', sec=None, fn=None, timestamp=None):
         """
         Args:
+            prep_id (int or str):
+            normalization_scheme (str): 
             what (str): "features" or "locations"
         """
 
@@ -4307,6 +4317,9 @@ class DataManager(object):
         if fn is None:
             fn = metadata_cache['sections_to_filenames'][stack][sec]
 
+        if prep_id is not None and isinstance(prep_id, str):
+            prep_id = prep_str_to_id_2d[prep_id]
+            
         prep_str = 'prep%(prep)d' % {'prep':prep_id}
         win_str = 'win%(win)d' % {'win':win_id}
 
@@ -4362,13 +4375,17 @@ class DataManager(object):
                                              model_name=model_name, what='features', timestamp=timestamp)
         create_parent_dir_if_not_exists(features_fp)
         bp.pack_ndarray_file(features, features_fp)
-        upload_to_s3(features_fp)
+        
+        if ENABLE_UPLOAD_S3:
+            upload_to_s3(features_fp)
 
         locations_fp = DataManager.get_dnn_features_filepath_v2(stack=stack, sec=sec, fn=fn, prep_id=prep_id, win_id=win_id,
                               normalization_scheme=normalization_scheme,
                                              model_name=model_name, what='locations', timestamp=timestamp)
         np.savetxt(locations_fp, locations, fmt='%d')
-        upload_to_s3(locations_fp)
+        
+        if ENABLE_UPLOAD_S3:
+            upload_to_s3(locations_fp)
 
 #     @staticmethod
 #     def get_dnn_features_filepath(stack, model_name, win, section=None, fn=None, prep_id=2, input_img_version='gray', suffix=None):
@@ -4443,7 +4460,7 @@ class DataManager(object):
     ##################
 
     @staticmethod
-    def get_image_version_basename(stack, version, resol='lossless', anchor_fn=None):
+    def get_image_version_basename(stack, version, resol=None, anchor_fn=None):
 
         if anchor_fn is None:
             anchor_fn = metadata_cache['anchor_fn'][stack]
@@ -4456,7 +4473,7 @@ class DataManager(object):
         return image_version_basename
 
     @staticmethod
-    def get_image_basename(stack, version, resol='lossless', anchor_fn=None, fn=None, section=None):
+    def get_image_basename(stack, version, resol=None, anchor_fn=None, fn=None, section=None):
 
         if anchor_fn is None:
             anchor_fn = metadata_cache['anchor_fn'][stack]
@@ -4491,7 +4508,7 @@ class DataManager(object):
 #         return image_basename
 
     @staticmethod
-    def get_image_dir_v2(stack, prep_id=None, version=None, resol='lossless',
+    def get_image_dir_v2(stack, prep_id=None, version=None, resol=None,
                       data_dir=DATA_DIR, raw_data_dir=RAW_DATA_DIR, thumbnail_data_dir=THUMBNAIL_DATA_DIR):
         """
         Args:
@@ -4665,6 +4682,8 @@ class DataManager(object):
                         sys.stderr.write('Cannot load stack=%s, section=%s, fn=%s, prep=%s, version=%s, resolution=%s\n' % (stack, section, fn, prep_id, version, resol))
                         raise Exception("Image loading failed.")
 
+        assert img is not None, "Failed to load image after trying different ways. Give up."
+        
         if version == 'mask':
             img = img.astype(np.bool)
 
@@ -4693,13 +4712,13 @@ class DataManager(object):
         image_cache = {}
 
     @staticmethod
-    def load_image(stack, version, resol='lossless', section=None, fn=None, anchor_fn=None, modality=None, data_dir=DATA_DIR, ext=None):
+    def load_image(stack, version, resol=None, section=None, fn=None, anchor_fn=None, modality=None, data_dir=DATA_DIR, ext=None):
         img_fp = DataManager.get_image_filepath(**locals())
         # download_from_s3(img_fp)
         return imread(img_fp)
 
     @staticmethod
-    def get_image_filepath_v2(stack, prep_id, version=None, resol='raw',
+    def get_image_filepath_v2(stack, prep_id, version=None, resol=None,
                            data_dir=DATA_DIR, raw_data_dir=RAW_DATA_DIR, thumbnail_data_dir=THUMBNAIL_DATA_DIR,
                            section=None, fn=None, ext=None, sorted_filenames_fp=None):
         """
@@ -4710,20 +4729,20 @@ class DataManager(object):
             Absolute path of the image file.
         """
 
-        if resol == 'lossless':
-            if stack == 'CHATM2' or stack == 'CHATM3':
-                resol = 'raw'
-        elif resol == 'raw':
-            if stack not in ['CHATM2', 'CHATM3', 'MD661', 'DEMO999']:
-                resol = 'lossless'
+#         if resol == 'lossless':
+#             if stack == 'CHATM2' or stack == 'CHATM3':
+#                 resol = 'raw'
+#         elif resol == 'raw':
+#             if stack not in ['CHATM2', 'CHATM3', 'MD661', 'DEMO999']:
+#                 resol = 'lossless'
 
         if section is not None:
-            
-            if sorted_filenames_fp is not None:
-                _, sections_to_filenames = DataManager.load_sorted_filenames(fp=sorted_filenames_fp)                
-                fn = sections_to_filenames[section]
-            else:
+            try:
                 fn = metadata_cache['sections_to_filenames'][stack][section]
+            except:
+                sys.stderr.write("Metadata cache does not contain sorted file list for stack %s\n" % stack)
+                _, sections_to_filenames = DataManager.load_sorted_filenames(stack=stack, fp=sorted_filenames_fp)
+                fn = sections_to_filenames[section]
                 
             if is_invalid(fn=fn):
                 raise Exception('Section is invalid: %s.' % fn)

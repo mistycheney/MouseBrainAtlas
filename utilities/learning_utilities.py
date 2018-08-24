@@ -800,7 +800,7 @@ def extract_patches_given_locations(patch_size,
         patch_size (int): size of the square patch in pixel.
         locs ((n,2)-array): list of patch centers
         img: the image. If not given, must provide stack, sec, version and prep_id (default=2).
-        normalization_scheme (str): the normalization method applied to the patches.
+        normalization_scheme (str): patch normalization to be performed on top of input version images. Default is 'none' which means use input version directly without additional normalization.
 
     Returns:
         list of (patch_size, patch_size)-arrays.
@@ -2942,7 +2942,7 @@ def compute_and_save_features_one_section(scheme, win_id, stack=None, prep_id=2,
     Args:
         scheme (str): normalization scheme
         win_id (int): windowing id, determines patch size and spacing.
-        prep_id (int): the prep_id the `bbox` is relative to. Default to 2.
+        prep_id (int or str): the prep_id the `bbox` is relative to. Default to 2(alignedBrainstemCrop).
         bbox (4-tuple): (xmin, xmax, ymin, ymax) in raw resolution. If not given, use the whole image.
         feature (str): cnn or mean
         model_name (str): model name. For forming filename of saved features.

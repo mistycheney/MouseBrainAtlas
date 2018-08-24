@@ -11,8 +11,8 @@ The time for processing one brain on one workstation with 8 GPU is as follows:
 # Preprocessing
 
 ## Convert raw data to TIFF
-jp2 -> raw: 
-raw -> raw_Ntb:
+* jp2 -> raw: 30s/section
+* raw -> raw_Ntb:
 
 ### For thionin data
 * raw -> thumbnail

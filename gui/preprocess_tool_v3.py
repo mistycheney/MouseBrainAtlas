@@ -233,6 +233,7 @@ class PreprocessGUI(QMainWindow, Ui_PreprocessGui):
 
         section_filenames = self.get_sorted_filenames(valid_only=self.show_valid_only)
 
+        # Initialize gscene "current"
         self.curr_gscene = SimpleGraphicsScene4(id='current', gview=self.alignment_ui.curr_gview)
         self.alignment_ui.curr_gview.setScene(self.curr_gscene)
         self.curr_gscene.set_data_feeder(self.ordered_images_feeder)
@@ -240,6 +241,7 @@ class PreprocessGUI(QMainWindow, Ui_PreprocessGui):
         self.curr_gscene.active_image_updated.connect(self.current_section_image_changed)
         self.curr_gscene.anchor_point_added.connect(self.anchor_point_added)
 
+        # Initialize gscene "previous"
         self.prev_gscene = SimpleGraphicsScene4(id='previous', gview=self.alignment_ui.prev_gview)
         self.alignment_ui.prev_gview.setScene(self.prev_gscene)
         self.prev_gscene.set_data_feeder(self.ordered_images_feeder)
@@ -247,16 +249,19 @@ class PreprocessGUI(QMainWindow, Ui_PreprocessGui):
         self.prev_gscene.active_image_updated.connect(self.previous_section_image_changed)
         self.prev_gscene.anchor_point_added.connect(self.anchor_point_added)
 
+        # Initialize gscene "overlay"
         self.overlay_gscene = MultiplePixmapsGraphicsScene(id='overlay', pixmap_labels=['moving', 'fixed'], gview=self.alignment_ui.aligned_gview)
         self.alignment_ui.aligned_gview.setScene(self.overlay_gscene)
-        self.transformed_images_feeder = ImageDataFeeder_v2('overlay image feeder', stack=self.stack,
-                                                sections=section_filenames, resolution=self.tb_res)
+
+        self.transformed_images_feeder = ImageDataFeeder_v2('transformed image feeder', stack=self.stack, sections=section_filenames, resolution=self.tb_res)
         self.update_transformed_images_feeder()
         self.overlay_gscene.set_data_feeder(self.transformed_images_feeder, 'moving')
+
         self.overlay_gscene.set_data_feeder(self.ordered_images_feeder, 'fixed')
         self.overlay_gscene.set_active_indices({'moving': 1, 'fixed': 0})
         self.overlay_gscene.set_opacity('moving', .3)
         self.overlay_gscene.set_opacity('fixed', .3)
+        self.overlay_gscene.active_image_updated.connect(self.overlay_image_changed)
 
         self.alignment_gui.show()
 
@@ -400,13 +405,30 @@ class PreprocessGUI(QMainWindow, Ui_PreprocessGui):
         self.previous_section_anchor_received = False
         self.alignment_ui.button_anchor.setEnabled(False)
 
+    def overlay_image_changed(self):
+        section_filenames = self.get_sorted_filenames(valid_only=self.show_valid_only)
+
+        curr_section_fn = self.overlay_gscene.active_sections['moving']
+        prev_section_fn = self.overlay_gscene.active_sections['fixed']
+
+        print "Problematic pairs:", self.problematic_pairs
+
+        if (prev_section_fn, curr_section_fn) in self.problematic_pairs:
+            self.alignment_ui.label_current_filename.setText('(CHECK)' + str(curr_section_fn))
+            self.alignment_ui.label_current_index.setText('(CHECK)' + str(curr_section_fn))
+        else:
+            self.alignment_ui.label_current_filename.setText(str(curr_section_fn))
+            self.alignment_ui.label_current_index.setText(str(curr_section_fn))
+        self.curr_gscene.set_active_section(curr_section_fn)
+        self.prev_gscene.set_active_section(prev_section_fn)
+
     def current_section_image_changed(self):
         section_filenames = self.get_sorted_filenames(valid_only=self.show_valid_only)
 
         curr_section_fn = self.curr_gscene.active_section
         prev_section_fn = section_filenames[section_filenames.index(curr_section_fn) - 1]
 
-        print self.problematic_pairs
+        print "Problematic pairs:", self.problematic_pairs
 
         if (prev_section_fn, curr_section_fn) in self.problematic_pairs:
             self.alignment_ui.label_current_filename.setText('(CHECK)' + str(curr_section_fn))
@@ -426,7 +448,7 @@ class PreprocessGUI(QMainWindow, Ui_PreprocessGui):
         self.alignment_ui.label_previous_filename.setText(prev_section_fn)
         self.alignment_ui.label_previous_index.setText(str(prev_section_fn))
         self.curr_gscene.set_active_section(curr_section_fn)
-        self.overlay_gscene.set_active_sections({'moving': curr_section_fn, 'fixed': prev_section_fn})
+        self.overlay_gscene.set_active_sections({'moving': curr_section_fn, 'fixed': prev_section_fn}, emit_changed_signal=False)
 
     ########################## END OF EDIT TRANSFORM ######################################3
 
@@ -480,10 +502,6 @@ class PreprocessGUI(QMainWindow, Ui_PreprocessGui):
         if not hasattr(self, 'currently_showing'):
             self.currently_showing = 'original'
 
-        # self.sorted_filenames =
-        # self.valid_section_filenames = self.get_valid_sorted_filenames()
-        # self.valid_section_indices = [self.sorted_filenames.index(fn) + 1 for fn in self.valid_section_filenames]
-
         if not hasattr(self, 'anchor_fn'):
             anchor_fp = DataManager.get_anchor_filename_filename(self.stack)
             if os.path.exists(anchor_fp):
@@ -502,13 +520,13 @@ class PreprocessGUI(QMainWindow, Ui_PreprocessGui):
         if self.currently_showing == 'original':
 
             filenames_to_load = self.get_sorted_filenames(valid_only=self.show_valid_only)
-            print filenames_to_load
 
             if not hasattr(self, 'ordered_images_feeder') or self.ordered_images_feeder is None:
                 self.ordered_images_feeder = ImageDataFeeder_v2('ordered image feeder', stack=self.stack,
-                                    sections=filenames_to_load, resolution=self.tb_res, use_thread=False, auto_load=False)
+                                            sections=filenames_to_load, resolution=self.tb_res, use_thread=False, auto_load=False)
                 self.ordered_images_feeder.set_images(labels=filenames_to_load,
-                                                filenames=[DataManager.get_image_filepath_v2(stack=self.stack, fn=fn, prep_id=None, version=self.tb_version, resol=self.tb_res)
+                                                filenames=[DataManager.get_image_filepath_v2(stack=self.stack, fn=fn, prep_id=None,
+                                                version=self.tb_version, resol=self.tb_res)
                                                                             for fn in filenames_to_load],
                                                 resolution=self.tb_res, load_with_cv2=False)
                 self.ordered_images_feeder.set_images(labels=['Placeholder'],
@@ -528,13 +546,12 @@ class PreprocessGUI(QMainWindow, Ui_PreprocessGui):
         elif self.currently_showing == 'aligned':
 
             filenames_to_load = self.get_sorted_filenames(valid_only=self.show_valid_only)
-            print filenames_to_load
 
             if not hasattr(self, 'aligned_images_feeder') or self.aligned_images_feeder is None:
                 self.aligned_images_feeder = ImageDataFeeder_v2('aligned image feeder', stack=self.stack,
                                     sections=filenames_to_load, resolution=self.tb_res, use_thread=False, auto_load=False)
                 self.aligned_images_feeder.set_images(labels=filenames_to_load,
-                                                filenames=[DataManager.get_image_filepath_v2(stack=self.stack, fn=fn, prep_id=1, version=self.tb_version, resol=self.tb_res)
+                                                filenames=[DataManager.get_image_filepath_v2(stack=self.stack, fn=fn, prep_id='alignedPadded', version=self.tb_version, resol=self.tb_res)
                                                                             for fn in filenames_to_load],
                                                 resolution=self.tb_res, load_with_cv2=False)
 

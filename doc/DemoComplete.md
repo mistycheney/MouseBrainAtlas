@@ -1,5 +1,7 @@
 ## Preprocess 
-- Run `download_demo_data_preprocessing.py`
+- Run `download_demo_data_preprocessing.py --step 1` to download an example JPEG2000 image.
+- Run `preprocess_demo.py --step 1`
+- Run `download_demo_data_preprocessing.py --step 2`
 - `$ ./align.py DEMO999 `
 - 
 

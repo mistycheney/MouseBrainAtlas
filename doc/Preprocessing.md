@@ -7,17 +7,19 @@ In the following explanation, each step is characterized by a pair of image set 
 
 ## Convert data from scanner format to TIF
 
-* jp2 -> raw (for JPEG2000 data)
+* jp2 -> raw (for JPEG2000 data): `jp2_to_tiff.py <brain> <input_spec>`
 * czi -> raw (for czi data)
 
 ## For thionin (brightfield) data
-* raw -> thumbnail: `resize`
-`resize.py <in_fp_map> <out_fp_map> 0.03125`
+* If thumbnails (downsampled 32 times) are not provided:
+	* raw -> thumbnail: `resize`, `resize.py <in_fp_map> <out_fp_map> 0.03125`
 * Loop:
-	* Compute pairwise tranforms using thumbnail: `align`
-	* Compose pairwise transforms to get each image's transform to anchor: `compose`
-	`align_compose.py [stack] [resol] [version] [image_names] [filelist] [anchor] [elastix_output_dir] [custom_output_dir]`
-	* thumbnail -> prep1_thumbnail: `warp`
+	* Either
+		* Compute pairwise tranforms using thumbnail: `align_consecutive_v3.py`
+		* Compose pairwise transforms to get each image's transform to anchor: `compose_transform_thumbnail_v3.py`
+		* thumbnail -> prep1_thumbnail: `warp`
+	* OR 
+		* Combine the three steps: `align_compose_warp.py [stack] [resol] [version] [image_names] [filelist] [anchor] [elastix_output_dir] [custom_output_dir]`
 	* Inspect aligned images, correct pairwise transforms and check each image's order in stack (HUMAN)
 * If `thumbnail_mask` is given:
 	* thumbnail_mask -> prep1_thumbnail_mask: `warp`

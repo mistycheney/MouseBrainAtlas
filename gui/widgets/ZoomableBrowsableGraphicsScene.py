@@ -101,8 +101,10 @@ class ZoomableBrowsableGraphicsScene(QGraphicsScene):
 
     def set_active_i(self, i, emit_changed_signal=True):
         """
-        Set the active index variable.
-        Then update image to load the active index.
+        Set the active index variable. Then update image to load the active index.
+
+        Args:
+            i (int): image index
         """
 
         # print self.id, 'goal active_i =', i, 'current active_i =', self.active_i
@@ -110,7 +112,7 @@ class ZoomableBrowsableGraphicsScene(QGraphicsScene):
         if i == self.active_i:
             return
 
-        old_i = self.active_i
+        # old_i = self.active_i
 
         print self.id, ': Set active index to', i, ', emit_changed_signal', emit_changed_signal
 
@@ -122,15 +124,19 @@ class ZoomableBrowsableGraphicsScene(QGraphicsScene):
         try:
             self.update_image()
         except Exception as e: # if failed, do not change active_i or active_section
-            sys.stderr.write('Failed to update image.\n')
+            sys.stderr.write('Failed to update image: %s.\n' % e)
             self.pixmapItem.setVisible(False)
             # raise e
-            return # This is temporary, remove "return" and uncomment "raise e" once you are done debugging.
+            # return # This is temporary, remove "return" and uncomment "raise e" once you are done debugging.
 
         if emit_changed_signal:
             self.active_image_updated.emit()
 
     def set_active_section(self, sec, emit_changed_signal=True):
+        """
+        Args:
+            sec (str or int): label (does not have to be section index)
+        """
 
         # print self.id, 'current active_section = ', self.active_section
 
@@ -155,31 +161,17 @@ class ZoomableBrowsableGraphicsScene(QGraphicsScene):
     def update_image(self, i=None, sec=None):
         """
         Update the image at the request index/section.
+
+        Args:
+            i (int): image index
+            sec: image label
         """
 
-        t = time.time()
-        i, sec = self.get_requested_index_and_section(i=i, sec=sec)
-        sys.stderr.write("get_requested_index_and_section: %.2f seconds.\n" % (time.time() - t))
-
-        t = time.time()
-        image = self.data_feeder.retrieve_i(i=i)
-        sys.stderr.write("data_feeder.retrieve_i: %.2f seconds.\n" % (time.time() - t))
-
-        t = time.time()
-        pixmap = QPixmap.fromImage(image)
-        sys.stderr.write("generate pixmap: %.2f seconds.\n" % (time.time() - t))
-        t = time.time()
+        i, _ = self.get_requested_index_and_section(i=i, sec=sec)
+        qimage = self.data_feeder.retrieve_i(i=i)
+        pixmap = QPixmap.fromImage(qimage)
         self.pixmapItem.setPixmap(pixmap)
-        sys.stderr.write("set pixmap: %.2f seconds.\n" % (time.time() - t))
-        t = time.time()
         self.pixmapItem.setVisible(True)
-        sys.stderr.write("set visible: %.2f seconds.\n" % (time.time() - t))
-
-    # def set_downsample_factor(self, downsample):
-    #     if self.data_feeder.downsample == downsample:
-    #         return
-    #     self.data_feeder.set_downsample_factor(downsample)
-    #     self.update_image()
 
     def show_next(self, cycle=False):
         if cycle:

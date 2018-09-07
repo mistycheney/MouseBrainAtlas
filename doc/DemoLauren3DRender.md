@@ -46,4 +46,4 @@ python demo/demo_vtk_render_atlas.py --experiments_config demo/lauren_experiment
 
 The file `demo/lauren_experiments.csv` specifies the set of brains to display and the color of each. One can select which brains to show by changing the csv file.
 
-In the 3D viewer, use mouse wheel to zoom and SHIFT+drag to move.
+In the 3D viewer, use mouse wheel to zoom and SHIFT+drag to move. Press Q to quit.

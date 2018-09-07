@@ -1,5 +1,6 @@
 ```
-cd /home/yuncong/Brain/ # or the repo dir you chose
+# Enter the repository folder (your path might be different from this)
+cd /home/yuncong/Brain/
 
 # Install required python packages
 sudo apt-get install libgeos-dev

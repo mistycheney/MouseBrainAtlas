@@ -1,4 +1,7 @@
+Yuncong has already done the installation. Lauren just need to follow instructions in "Regular use".
+
 # Installation
+
 ```
 ＃ Install vtk 7.1.1 (Cannot use newest version 8 because the window crashes immediately after it launches)
 cd /home/yuncong

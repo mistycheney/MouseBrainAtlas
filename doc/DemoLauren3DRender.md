@@ -1,5 +1,5 @@
 ```
-＃ Install vtk 7.1.1 (With newest version 8 the window crashes immediately after it launches)
+＃ Install vtk 7.1.1 (Cannot use newest version 8 because the window crashes immediately after it launches)
 cd /home/yuncong
 wget https://www.vtk.org/files/release/7.1/vtkpython-7.1.1-Linux-64bit.tar.gz
 tar xfz vtkpython-7.1.1-Linux-64bit.tar.gz

@@ -23,6 +23,7 @@ cd /home/yuncong/Brain/
 sudo apt-get install libgeos-dev
 pip install cython==0.28.5 # see this issue https://github.com/h5py/h5py/issues/535
 pip install -r requirements.txt
+pip install git+https://github.com/pmneila/PyMCubes.git@9fd6059
 
 source demo/set_env_variables.sh
 python demo/download_render_demo_data.py

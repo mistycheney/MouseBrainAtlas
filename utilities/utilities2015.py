@@ -146,7 +146,7 @@ def save_data(data, fp, upload_s3=True):
     create_parent_dir_if_not_exists(fp)
 
     if fp.endswith('.bp'):
-        bp.pack_ndarray_file(np.ascontiguousarray(data), fp) 
+        bp.pack_ndarray_file(np.ascontiguousarray(data), fp)
         # ascontiguousarray is important, without which sometimes the loaded array will be different from saved.
     elif fp.endswith('.json'):
         save_json(data, fp)
@@ -227,7 +227,7 @@ def convert_volume_forms(volume, out_form):
     else:
         raise Exception("out_form %s is not recognized.")
 
-        
+
 def volume_origin_to_bbox(v, o):
     """
     Convert a (volume, origin) tuple into a bounding box.
@@ -292,7 +292,7 @@ def plot_by_stack_by_structure(data_all_stacks_all_structures, structures,
                               ):
     """
     Plot the input data, with structures as x-axis. Different stacks are represented using different colors.
-    
+
     Args:
         style (str): scatter or boxplot.
     """
@@ -309,12 +309,12 @@ def plot_by_stack_by_structure(data_all_stacks_all_structures, structures,
                     for i, s in enumerate(structures)]
             ax.scatter(range(len(vals)), vals, marker='o', s=100, label=stack, c=np.array(stack_to_color[stack])/255.);
     elif style == 'boxplot':
-        
-        D = [[data_all_stacks_all_structures[stack][struct] 
-              for stack in data_all_stacks_all_structures.iterkeys() 
+
+        D = [[data_all_stacks_all_structures[stack][struct]
+              for stack in data_all_stacks_all_structures.iterkeys()
              if struct in data_all_stacks_all_structures[stack]]
             for struct in structures]
-        
+
         bplot = plt.boxplot(np.array(D), positions=range(0, len(structures)), patch_artist=True);
 #         for patch in bplot['boxes']:
 #             patch.set_facecolor(np.array(stack_to_color[stack])/255.)
@@ -339,7 +339,7 @@ def plot_by_stack_by_structure(data_all_stacks_all_structures, structures,
     ax.set_ylim([yticks[0], yticks[-1]+yticks[-1]-yticks[-2]]);
     plt.legend();
     ax.set_title(title, fontsize=20);
-    
+
     return fig, ax
 
 #####################################################################
@@ -1394,14 +1394,14 @@ def show_progress_bar(min, max):
     display(bar)
     return bar
 
-from enum import Enum
-
-class PolygonType(Enum):
-    CLOSED = 'closed'
-    OPEN = 'open'
-    TEXTURE = 'textured'
-    TEXTURE_WITH_CONTOUR = 'texture with contour'
-    DIRECTION = 'directionality'
+# from enum import Enum
+#
+# class PolygonType(Enum):
+#     CLOSED = 'closed'
+#     OPEN = 'open'
+#     TEXTURE = 'textured'
+#     TEXTURE_WITH_CONTOUR = 'texture with contour'
+#     DIRECTION = 'directionality'
 
 def create_parent_dir_if_not_exists(fp):
     create_if_not_exists(os.path.dirname(fp))

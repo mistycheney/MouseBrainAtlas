@@ -21,7 +21,7 @@ cd /home/yuncong/Brain/
 
 # Install required python packages
 sudo apt-get install libgeos-dev
-pip install cython==0.28.5
+pip install cython==0.28.5 # see this issue https://github.com/h5py/h5py/issues/535
 pip install -r requirements.txt
 
 source demo/set_env_variables.sh

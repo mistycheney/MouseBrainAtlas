@@ -270,7 +270,7 @@ class PreprocessGUI(QMainWindow, Ui_PreprocessGui):
         section_filenames = self.get_sorted_filenames(valid_only=self.show_valid_only)
 
         transformed_image_filenames = []
-        for i in xrange(1, len(section_filenames)):
+        for i in range(1, len(section_filenames)):
             fp = DataManager.load_image_filepath_warped_to_adjacent_section(stack=self.stack, moving_fn=section_filenames[i], fixed_fn=section_filenames[i-1])
             transformed_image_filenames.append(fp)
 
@@ -501,32 +501,33 @@ class PreprocessGUI(QMainWindow, Ui_PreprocessGui):
                 with open(anchor_fp) as f:
                     self.set_anchor(f.readline().strip())
             else:
-                filenames_to_load = self.get_sorted_filenames(valid_only=self.show_valid_only)
+                imageNames_to_load = self.get_sorted_filenames(valid_only=self.show_valid_only)
                 shapes = \
                     [identify_shape(DataManager.get_image_filepath_v2(stack=self.stack, fn=fn, prep_id=None, version=self.tb_version, resol=self.tb_res))
-                    for fn in filenames_to_load]
+                    for fn in imageNames_to_load]
                 largest_idx = np.argmax([h*w for h, w in shapes])
-                print 'largest section is ', filenames_to_load[largest_idx]
-                self.set_anchor(filenames_to_load[largest_idx])
-                print filenames_to_load[largest_idx]
+                print 'largest section is ', imageNames_to_load[largest_idx]
+                self.set_anchor(imageNames_to_load[largest_idx])
+                print imageNames_to_load[largest_idx]
 
         if self.currently_showing == 'original':
 
-            filenames_to_load = self.get_sorted_filenames(valid_only=self.show_valid_only)
+            imageNames_to_load = self.get_sorted_filenames(valid_only=self.show_valid_only)
 
             if not hasattr(self, 'ordered_images_feeder') or self.ordered_images_feeder is None:
                 self.ordered_images_feeder = ImageDataFeeder_v2('ordered image feeder', stack=self.stack,
-                                            sections=filenames_to_load, resolution=self.tb_res, use_thread=False, auto_load=False)
-                self.ordered_images_feeder.set_images(labels=filenames_to_load,
+                                            sections=imageNames_to_load, resolution=self.tb_res, use_thread=False, auto_load=False)
+
+                self.ordered_images_feeder.set_images(labels=imageNames_to_load,
                                                 filenames=[DataManager.get_image_filepath_v2(stack=self.stack, fn=fn, prep_id=None,
                                                 version=self.tb_version, resol=self.tb_res)
-                                                                            for fn in filenames_to_load],
+                                                                            for fn in imageNames_to_load],
                                                 resolution=self.tb_res, load_with_cv2=False)
                 self.ordered_images_feeder.set_images(labels=['Placeholder'],
                                                 filenames=[self.placeholder_qimage],
                                                 resolution=self.tb_res, load_with_cv2=False)
             else:
-                self.ordered_images_feeder.set_sections(filenames_to_load)
+                self.ordered_images_feeder.set_sections(imageNames_to_load)
 
             self.sorted_sections_gscene.set_data_feeder(self.ordered_images_feeder)
 
@@ -538,21 +539,21 @@ class PreprocessGUI(QMainWindow, Ui_PreprocessGui):
 
         elif self.currently_showing == 'aligned':
 
-            filenames_to_load = self.get_sorted_filenames(valid_only=self.show_valid_only)
+            imageNames_to_load = self.get_sorted_filenames(valid_only=self.show_valid_only)
 
             if not hasattr(self, 'aligned_images_feeder') or self.aligned_images_feeder is None:
                 self.aligned_images_feeder = ImageDataFeeder_v2('aligned image feeder', stack=self.stack,
-                                    sections=filenames_to_load, resolution=self.tb_res, use_thread=False, auto_load=False)
-                self.aligned_images_feeder.set_images(labels=filenames_to_load,
+                                    sections=imageNames_to_load, resolution=self.tb_res, use_thread=False, auto_load=False)
+                self.aligned_images_feeder.set_images(labels=imageNames_to_load,
                                                 filenames=[DataManager.get_image_filepath_v2(stack=self.stack, fn=fn, prep_id='alignedPadded', version=self.tb_version, resol=self.tb_res)
-                                                                            for fn in filenames_to_load],
+                                                                            for fn in imageNames_to_load],
                                                 resolution=self.tb_res, load_with_cv2=False)
 
                 self.aligned_images_feeder.set_images(labels=['Placeholder'],
                                                 filenames=[self.placeholder_qimage],
                                                 resolution=self.tb_res, load_with_cv2=False)
             else:
-                self.aligned_images_feeder.set_sections(filenames_to_load)
+                self.aligned_images_feeder.set_sections(imageNames_to_load)
 
             self.sorted_sections_gscene.set_data_feeder(self.aligned_images_feeder)
 
@@ -772,7 +773,7 @@ if __name__ == "__main__":
 
     parser.add_argument("stack_name", type=str, help="stack name")
     parser.add_argument("--tb_fmt", type=str, help="thumbnail format", default='png')
-    parser.add_argument("--tb_res", type=str, help="resolution of displayed thumbnail images", default='down32')
+    parser.add_argument("--tb_res", type=str, help="resolution of displayed thumbnail images", default='thumbnail')
     parser.add_argument("--tb_version", type=str, help="version of displayed thumbnail images", default=None)
     args = parser.parse_args()
     app = QApplication(sys.argv)

@@ -230,6 +230,11 @@ class ImageDataFeeder_v2(object):
         # self.retrieve_i(i=self.active_i)
 
     def set_images(self, labels=None, filenames=None, labeled_filenames=None, resolution=None, load_with_cv2=False):
+        """
+        Args:
+            filenames (list of str): list of image file paths
+
+        """
 
         if labeled_filenames is not None:
             assert isinstance(labeled_filenames, dict)
@@ -239,6 +244,7 @@ class ImageDataFeeder_v2(object):
         assert len(labels) == len(filenames), "Length of labels is different from length of filenames."
 
         for lbl, fp in zip(labels, filenames):
+            sys.stderr.write("Trying to read image %s from %s\n" % (lbl, fp))
             if load_with_cv2: # For loading output tif images from elastix, directly QImage() causes "foo: Can not read scanlines from a tiled image."
                 img = cv2.imread(fp)
                 if img is None:

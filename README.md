@@ -1,4 +1,4 @@
-We have consolidated the code in this repository and moved to [a new repository](https://github.com/ActiveBrainAtlas/MouseBrainAtlas).
+We have consolidated the code and moved them to [a new repository](https://github.com/ActiveBrainAtlas/MouseBrainAtlas).
 
 For technical details, please reference the following paper:
 - The Active Atlas: Combining 3D Anatomical Models with Texture Detectors, _Yuncong Chen et al._, MICCAI 2017 [[pdf]](https://arxiv.org/pdf/1702.08606.pdf)

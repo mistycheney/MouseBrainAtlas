@@ -285,7 +285,7 @@ def snake(img, init_submasks=None, init_contours=None, lambda1=MORPHSNAKE_LAMBDA
                     elif component_area < min_size:
                         msnake.levelset[m] = 0
                         sys.stderr.write('Component area is too small - nullified.\n')
-            print component_sizes
+ #           print component_sizes
 
             if  np.count_nonzero(msnake.levelset)/float(init_area) < AREA_CHANGE_RATIO_MIN:
                 discard = True

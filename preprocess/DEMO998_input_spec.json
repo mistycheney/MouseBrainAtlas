@@ -1,0 +1,3 @@
+[
+	{"version": null, "resolution": "raw", "data_dirs": "/media/yuncong/BstemAtlasData/DEMO998/", "filepath_to_imageName_mapping": "/media/yuncong/BstemAtlasData/DEMO998/(.*)?_lossless.jp2", "imageName_to_filepath_mapping": "/media/yuncong/BstemAtlasData/DEMO998/%s_lossless.jp2"}
+]

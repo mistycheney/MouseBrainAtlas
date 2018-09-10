@@ -20,25 +20,16 @@ args = parser.parse_args()
 
 stack = args.stack_name
 with open(args.spec, 'r') as f:
-    spec = json.load(f)
+    input_spec = json.load(f)
 
-data_dirs = \
-{
-    (d['version'], d['resolution']): d['path']
-    for d in spec['data_dirs']
-}
-
-filepath_to_imageName_mapping = \
-{
-    (d['version'], d['resolution']): d['path']
-    for d in spec['filepath_to_imageName_mapping']
-}
-
-imageName_to_filepath_mapping = \
-{
-    (d['version'], d['resolution']): d['path']
-    for d in spec['imageName_to_filepath_mapping']
-}
+data_dirs = {}
+imageName_to_filepath_mapping = {}
+filepath_to_imageName_mapping = {}
+for spec_one_version in input_spec:
+    vr = (spec_one_version['version'], spec_one_version['resolution'])
+    data_dirs[vr] = spec_one_version['data_dirs']
+    filepath_to_imageName_mapping[vr] = spec_one_version['filepath_to_imageName_mapping']
+    imageName_to_filepath_mapping[vr] = spec_one_version['imageName_to_filepath_mapping']
 
 image_names_all_data_dirs_flattened = set([])
 image_names_all_data_dirs = {}

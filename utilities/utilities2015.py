@@ -112,6 +112,28 @@ def compute_gradient_v2(volume, smooth_first=False, dtype=np.float16):
 
         return g.astype(dtype), o
 
+def csv_to_dict(fp):
+    import pandas as pd
+    df = pd.read_csv(fp, index_col=0, header=None)
+    d = df.to_dict(orient='index')
+    d = {k: v.values() for k, v in d.iteritems()}
+    return d
+
+def dict_to_csv(d, fp):
+    import pandas as pd
+    df = pd.DataFrame.from_dict({k: np.array(v).flatten() for k, v in d.iteritems()}, orient='index')
+    df.to_csv(fp, header=False)
+
+
+def load_ini(fp, split_newline=True):
+    import configparser
+    config = configparser.ConfigParser()
+    config.read(fp)
+    input_spec = dict(config.items('DEFAULT'))
+    input_spec = {k: v.split('\n') if '\n' in v else v for k, v in input_spec.iteritems()}
+
+    return input_spec
+
 
 def load_data(fp, polydata_instead_of_face_vertex_list=True, download_s3=True):
 

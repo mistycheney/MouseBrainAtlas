@@ -44,7 +44,8 @@ if hostname == 'yuncong-MacbookPro':
     if 'THUMBNAIL_DATA_ROOTDIR' in os.environ:
         THUMBNAIL_DATA_ROOTDIR = os.environ['THUMBNAIL_DATA_ROOTDIR']
     else:
-        THUMBNAIL_DATA_ROOTDIR = ROOT_DIR
+        #THUMBNAIL_DATA_ROOTDIR = ROOT_DIR
+        THUMBNAIL_DATA_ROOTDIR = DATA_ROOTDIR
 
     RAW_DATA_DIR = os.path.join(ROOT_DIR, 'CSHL_data')
     DATA_DIR = os.path.join(DATA_ROOTDIR, 'CSHL_data_processed')
@@ -616,6 +617,7 @@ planar_resolution = {'MD585': XY_PIXEL_DISTANCE_LOSSLESS,
                      'CHATM2': XY_PIXEL_DISTANCE_LOSSLESS_AXIOSCAN,
                      'CHATM3': XY_PIXEL_DISTANCE_LOSSLESS_AXIOSCAN,
                      'DEMO999': XY_PIXEL_DISTANCE_LOSSLESS,
+			'DEMO998': XY_PIXEL_DISTANCE_LOSSLESS
                     }
 
 ########################################

@@ -1,3 +1,7 @@
+# Reference
+
+The Active Atlas: Combining 3D Anatomical Models with Texture Detectors, _Yuncong Chen et al._, MICCAI 2017 [[pdf]](https://arxiv.org/pdf/1702.08606.pdf)
+
 # User Guides
  Explanations for how to install and run the code, intended for the non-programmer, are in the [User Guide](doc/UserGuide.md).
 

@@ -19,6 +19,7 @@ args = parser.parse_args()
 
 def download_to_demo(fp):
     demo_data_dir = args.demo_data_dir
+    create_if_not_exists(demo_data_dir)
     s3_http_prefix = 'https://s3-us-west-1.amazonaws.com/mousebrainatlas-data/'
     url = s3_http_prefix + fp
     demo_fp = os.path.join(demo_data_dir, fp)

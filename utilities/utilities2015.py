@@ -112,6 +112,28 @@ def compute_gradient_v2(volume, smooth_first=False, dtype=np.float16):
 
         return g.astype(dtype), o
 
+def csv_to_dict(fp):
+    import pandas as pd
+    df = pd.read_csv(fp, index_col=0, header=None)
+    d = df.to_dict(orient='index')
+    d = {k: v.values() for k, v in d.iteritems()}
+    return d
+
+def dict_to_csv(d, fp):
+    import pandas as pd
+    df = pd.DataFrame.from_dict({k: np.array(v).flatten() for k, v in d.iteritems()}, orient='index')
+    df.to_csv(fp, header=False)
+
+
+def load_ini(fp, split_newline=True):
+    import configparser
+    config = configparser.ConfigParser()
+    config.read(fp)
+    input_spec = dict(config.items('DEFAULT'))
+    input_spec = {k: v.split('\n') if '\n' in v else v for k, v in input_spec.iteritems()}
+
+    return input_spec
+
 
 def load_data(fp, polydata_instead_of_face_vertex_list=True, download_s3=True):
 
@@ -146,7 +168,7 @@ def save_data(data, fp, upload_s3=True):
     create_parent_dir_if_not_exists(fp)
 
     if fp.endswith('.bp'):
-        bp.pack_ndarray_file(np.ascontiguousarray(data), fp) 
+        bp.pack_ndarray_file(np.ascontiguousarray(data), fp)
         # ascontiguousarray is important, without which sometimes the loaded array will be different from saved.
     elif fp.endswith('.json'):
         save_json(data, fp)
@@ -227,7 +249,7 @@ def convert_volume_forms(volume, out_form):
     else:
         raise Exception("out_form %s is not recognized.")
 
-        
+
 def volume_origin_to_bbox(v, o):
     """
     Convert a (volume, origin) tuple into a bounding box.
@@ -292,7 +314,7 @@ def plot_by_stack_by_structure(data_all_stacks_all_structures, structures,
                               ):
     """
     Plot the input data, with structures as x-axis. Different stacks are represented using different colors.
-    
+
     Args:
         style (str): scatter or boxplot.
     """
@@ -309,12 +331,12 @@ def plot_by_stack_by_structure(data_all_stacks_all_structures, structures,
                     for i, s in enumerate(structures)]
             ax.scatter(range(len(vals)), vals, marker='o', s=100, label=stack, c=np.array(stack_to_color[stack])/255.);
     elif style == 'boxplot':
-        
-        D = [[data_all_stacks_all_structures[stack][struct] 
-              for stack in data_all_stacks_all_structures.iterkeys() 
+
+        D = [[data_all_stacks_all_structures[stack][struct]
+              for stack in data_all_stacks_all_structures.iterkeys()
              if struct in data_all_stacks_all_structures[stack]]
             for struct in structures]
-        
+
         bplot = plt.boxplot(np.array(D), positions=range(0, len(structures)), patch_artist=True);
 #         for patch in bplot['boxes']:
 #             patch.set_facecolor(np.array(stack_to_color[stack])/255.)
@@ -339,7 +361,7 @@ def plot_by_stack_by_structure(data_all_stacks_all_structures, structures,
     ax.set_ylim([yticks[0], yticks[-1]+yticks[-1]-yticks[-2]]);
     plt.legend();
     ax.set_title(title, fontsize=20);
-    
+
     return fig, ax
 
 #####################################################################
@@ -1394,14 +1416,14 @@ def show_progress_bar(min, max):
     display(bar)
     return bar
 
-from enum import Enum
-
-class PolygonType(Enum):
-    CLOSED = 'closed'
-    OPEN = 'open'
-    TEXTURE = 'textured'
-    TEXTURE_WITH_CONTOUR = 'texture with contour'
-    DIRECTION = 'directionality'
+# from enum import Enum
+#
+# class PolygonType(Enum):
+#     CLOSED = 'closed'
+#     OPEN = 'open'
+#     TEXTURE = 'textured'
+#     TEXTURE_WITH_CONTOUR = 'texture with contour'
+#     DIRECTION = 'directionality'
 
 def create_parent_dir_if_not_exists(fp):
     create_if_not_exists(os.path.dirname(fp))

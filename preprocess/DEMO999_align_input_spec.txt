@@ -1,0 +1,4 @@
+MD662&661-F102-2017.06.06-22.30.50_MD661_2_0305 /data/CSHL_data_processed/DEMO999/DEMO999_thumbnail_NtbNormalized/MD662&661-F102-2017.06.06-22.30.50_MD661_2_0305_thumbnail_NtbNormalized.tif
+MD662&661-F102-2017.06.06-22.30.50_MD661_1_0304 /data/CSHL_data_processed/DEMO999/DEMO999_thumbnail_NtbNormalized/MD662&661-F102-2017.06.06-22.30.50_MD661_1_0304_thumbnail_NtbNormalized.tif
+MD662&661-F101-2017.06.06-22.05.45_MD661_2_0302 /data/CSHL_data_processed/DEMO999/DEMO999_thumbnail_NtbNormalized/MD662&661-F101-2017.06.06-22.05.45_MD661_2_0302_thumbnail_NtbNormalized.tif
+MD662&661-F101-2017.06.06-22.05.45_MD661_1_0301 /data/CSHL_data_processed/DEMO999/DEMO999_thumbnail_NtbNormalized/MD662&661-F101-2017.06.06-22.05.45_MD661_1_0301_thumbnail_NtbNormalized.tif

@@ -1,5 +1,7 @@
 To run any demo,
 ```
+workon mousebrainatlas
+
 cd /home/yuncong/Brain/
 source demo/set_env_variables.sh
 ```

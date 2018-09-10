@@ -1213,6 +1213,10 @@ class DataManager(object):
 
     @staticmethod
     def load_cropbox_v2_relative(stack, prep_id, wrt_prep_id, out_resolution):
+	"""
+	Returns:
+		xmin, xmax, ymin, ymax
+	"""
 
         alignedBrainstemCrop_xmin_down32, alignedBrainstemCrop_xmax_down32, \
         alignedBrainstemCrop_ymin_down32, alignedBrainstemCrop_ymax_down32 = DataManager.load_cropbox_v2(stack=stack, prep_id=prep_id, only_2d=True)
@@ -4518,10 +4522,9 @@ class DataManager(object):
         Returns:
             Absolute path of the image directory.
         """
-
-        if prep_id is not None and isinstance(prep_id, str):
+        if prep_id is not None and (isinstance(prep_id, str) or isinstance(prep_id, unicode)):
             prep_id = prep_str_to_id_2d[prep_id]
-
+        
         if version is None:
             if resol == 'thumbnail' or resol == 'down64':
                 image_dir = os.path.join(thumbnail_data_dir, stack, stack + ('_prep%d' % prep_id if prep_id is not None else '') + '_%s' % resol)
@@ -4749,7 +4752,7 @@ class DataManager(object):
         else:
             assert fn is not None
 
-        if prep_id is not None and isinstance(prep_id, str):
+        if prep_id is not None and (isinstance(prep_id, str) or isinstance(prep_id, unicode)):
             prep_id = prep_str_to_id_2d[prep_id]
 
         image_dir = DataManager.get_image_dir_v2(stack=stack, prep_id=prep_id, resol=resol, version=version, data_dir=data_dir, thumbnail_data_dir=thumbnail_data_dir)

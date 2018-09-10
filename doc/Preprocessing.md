@@ -63,7 +63,7 @@ _prep5_raw_ will be published online.
 * raw_NtbNormalizedAdaptiveInvertedGamma -> prep5_raw_NtbNormalizedAdaptiveInvertedGamma: `align` + `crop`
 * thumbnail_NtbNormalized -> prep5_thumbnail_NtbNormalized: `align` + `crop`
 * prep5_raw_NtbNormalizedAdaptiveInvertedGamma -> prep5_thumbnail_NtbNormalizedAdaptiveInvertedGamma: `rescale`
-* Specify prep2 (alignedBrainstemCrop) cropping box
+* **(HUMAN)** Specify prep2 (alignedBrainstemCrop) cropping box
 * prep5_raw_NtbNormalizedAdaptiveInvertedGamma -> prep2_raw_NtbNormalizedAdaptiveInvertedGamma: `crop`
 * prep2_raw_NtbNormalizedAdaptiveInvertedGamma -> prep2_raw_NtbNormalizedAdaptiveInvertedGammaJpeg: `compress_jpeg`
 

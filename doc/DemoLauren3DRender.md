@@ -31,7 +31,7 @@ pip install git+https://github.com/pmneila/PyMCubes.git@9fd6059
 
 # Regular use
 
-First login as yuncong.
+First siwtch the Ubuntu account to yuncong.
 
 ```
 workon mousebrainatlas

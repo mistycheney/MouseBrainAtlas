@@ -11,20 +11,22 @@ In the following explanation, each step is characterized by a pair of image set 
 * czi -> raw (for czi data)
 
 ## For thionin (brightfield) data
+* **(HUMAN)** given the input path and ordered file list, verify every image present is in the list and all images mentioned in the list are present.
 * If thumbnails (downsampled 32 times) are not provided:
 	* raw -> thumbnail: `resize`, `resize.py <in_fp_map> <out_fp_map> 0.03125`
+	* **(HUMAN)**: browse thumbnails to verify orientations are all correct
 * Loop:
 	* Either
-		* Compute pairwise tranforms using thumbnail: `align_consecutive_v3.py`
-		* Compose pairwise transforms to get each image's transform to anchor: `compose_transform_thumbnail_v3.py`
-		* thumbnail -> prep1_thumbnail: `warp`
+		* Compute pairwise tranforms using thumbnails: `align.py [elastix_output_dir] [pairs_specifier]`
+		* Compose pairwise transforms to get each image's transform to anchor: `compose.py [elastix_output_dir] [custom_output_dir] [sorted_image_name_list] [anchor_img_name] [toanchor_transforms_fp]`
+		* thumbnail -> prep1_thumbnail: `warp_crop.py [input_fp] [output_fp] [--warp transform_txt] [--crop cropbox_json]`
 	* OR 
-		* Combine the three steps: `align_compose_warp.py [stack] [resol] [version] [image_names] [filelist] [anchor] [elastix_output_dir] [custom_output_dir]`
-	* Inspect aligned images, correct pairwise transforms and check each image's order in stack (HUMAN)
+		* Combine the three steps: `align_compose_warp.py [[stack] [resol] [version] [sorted_image_names_txt]] | [filelist_csv] [anchor] [elastix_output_dir] [custom_output_dir]`
+	* **(HUMAN)** Inspect aligned images using preprocessGUI, correct pairwise transforms and check each image's order in stack. `preprocess_gui.py`
 * If `thumbnail_mask` is given:
 	* thumbnail_mask -> prep1_thumbnail_mask: `warp`
 * Else:
-	* Supply prep1_thumbnail_mask (HUMAN)
+	* **(HUMAN)** Supply prep1_thumbnail_mask
 	* prep1_thumbnail_mask -> thumbnail_mask: `warp`
 * Compute prep5 (alignedWithMargin) crop box based on prep1_thumbnail_mask
 * Either
@@ -34,7 +36,7 @@ In the following explanation, each step is characterized by a pair of image set 
 	* raw -> prep5_raw: `warp` + `crop`
 * prep1_thumbnail -> prep5_thumbnail: `crop`
 * prep1_thumbnail_mask -> prep5_thumbnail_mask: `crop`
-* Specify prep2 (alignedBrainstemCrop) cropping box (HUMAN)
+* **(HUMAN)** Specify prep2 (alignedBrainstemCrop) cropping box
 * prep5_raw -> prep2_raw: `crop`
 * prep5_thumbnail -> prep2_thumbnail: `crop`
 * prep5_thumbnail_mask -> prep2_thumbnail_mask: `crop`
@@ -50,7 +52,11 @@ _prep5_raw_ will be published online.
 * raw_Ntb -> thumbnail_Ntb: `rescale`
 * thumbnail_Ntb -> thumbnail_NtbNormalized: `normalize_intensity`
 * Compute transforms using thumbnail_NtbNormalized: `align` + `compose`
-* Supply prep1_thumbnail_mask
+* If `thumbnail_mask` is given:
+	* thumbnail_mask -> prep1_thumbnail_mask: `warp`
+* Else:
+	* **(HUMAN)** Supply prep1_thumbnail_mask
+	* prep1_thumbnail_mask -> thumbnail_mask: `warp`
 * prep1_thumbnail_mask -> thumbnail_mask: `warp`
 * raw_Ntb -> raw_NtbNormalizedAdaptiveInvertedGamma: `brightness_correction`
 * Compute prep5 (alignedWithMargin) cropping box based on prep1_thumbnail_mask

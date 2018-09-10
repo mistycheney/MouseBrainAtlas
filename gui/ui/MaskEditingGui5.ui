@@ -6,7 +6,7 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>1417</width>
+    <width>1905</width>
     <height>825</height>
    </rect>
   </property>
@@ -40,35 +40,35 @@
      <item>
       <widget class="QPushButton" name="button_loadAllInitContours">
        <property name="text">
-        <string>Load All Init Contours</string>
+        <string>Load Init Contours for All Sections</string>
        </property>
       </widget>
      </item>
      <item>
       <widget class="QPushButton" name="button_saveAllInitContours">
        <property name="text">
-        <string>Save All Init Contours</string>
+        <string>Save Initial Contours for All Sections</string>
        </property>
       </widget>
      </item>
      <item>
       <widget class="QPushButton" name="button_saveCurrFinalMasks">
        <property name="text">
-        <string>Save Final Mask</string>
+        <string>Save Final Mask for Current Section</string>
        </property>
       </widget>
      </item>
      <item>
       <widget class="QPushButton" name="button_saveAllFinalMasks">
        <property name="text">
-        <string>Save All Final Masks</string>
+        <string>Save Final Masks for All Sections</string>
        </property>
       </widget>
      </item>
      <item>
       <widget class="QPushButton" name="button_exportAllMasks">
        <property name="text">
-        <string>Export All Masks</string>
+        <string>Export Masks as PNG for All Sections</string>
        </property>
       </widget>
      </item>

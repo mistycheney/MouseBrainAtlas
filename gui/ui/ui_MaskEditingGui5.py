@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-# Form implementation generated from reading ui file 'MaskEditingGui5.ui'
+# Form implementation generated from reading ui file 'ui/MaskEditingGui5.ui'
 #
 # Created by: PyQt4 UI code generator 4.11.4
 #
@@ -25,7 +25,7 @@ except AttributeError:
 class Ui_MaskEditingGui(object):
     def setupUi(self, MaskEditingGui):
         MaskEditingGui.setObjectName(_fromUtf8("MaskEditingGui"))
-        MaskEditingGui.resize(1417, 825)
+        MaskEditingGui.resize(1905, 825)
         self.gridLayout = QtGui.QGridLayout(MaskEditingGui)
         self.gridLayout.setObjectName(_fromUtf8("gridLayout"))
         self.horizontalLayout = QtGui.QHBoxLayout()
@@ -169,11 +169,11 @@ class Ui_MaskEditingGui(object):
         self.button_autoSnake.setText(_translate("MaskEditingGui", "Automatically Generate Masks for All", None))
         self.button_loadAnchorContours.setText(_translate("MaskEditingGui", "Load Anchor Contours", None))
         self.button_saveAnchorContours.setText(_translate("MaskEditingGui", "Save Anchor Contours", None))
-        self.button_loadAllInitContours.setText(_translate("MaskEditingGui", "Load All Init Contours", None))
-        self.button_saveAllInitContours.setText(_translate("MaskEditingGui", "Save All Init Contours", None))
-        self.button_saveCurrFinalMasks.setText(_translate("MaskEditingGui", "Save Final Mask", None))
-        self.button_saveAllFinalMasks.setText(_translate("MaskEditingGui", "Save All Final Masks", None))
-        self.button_exportAllMasks.setText(_translate("MaskEditingGui", "Export All Masks", None))
+        self.button_loadAllInitContours.setText(_translate("MaskEditingGui", "Load Init Contours for All Sections", None))
+        self.button_saveAllInitContours.setText(_translate("MaskEditingGui", "Save Initial Contours for All Sections", None))
+        self.button_saveCurrFinalMasks.setText(_translate("MaskEditingGui", "Save Final Mask for Current Section", None))
+        self.button_saveAllFinalMasks.setText(_translate("MaskEditingGui", "Save Final Masks for All Sections", None))
+        self.button_exportAllMasks.setText(_translate("MaskEditingGui", "Export Masks as PNG for All Sections", None))
         self.label_6.setText(_translate("MaskEditingGui", "Merged Mask", None))
         self.button_update_merged_mask.setText(_translate("MaskEditingGui", "Update Merged Mask", None))
         self.label_4.setText(_translate("MaskEditingGui", "Contrast Enhanced Image", None))

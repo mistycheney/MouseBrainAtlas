@@ -44,7 +44,8 @@ if hostname == 'yuncong-MacbookPro':
     if 'THUMBNAIL_DATA_ROOTDIR' in os.environ:
         THUMBNAIL_DATA_ROOTDIR = os.environ['THUMBNAIL_DATA_ROOTDIR']
     else:
-        THUMBNAIL_DATA_ROOTDIR = ROOT_DIR
+        #THUMBNAIL_DATA_ROOTDIR = ROOT_DIR
+        THUMBNAIL_DATA_ROOTDIR = DATA_ROOTDIR
 
     RAW_DATA_DIR = os.path.join(ROOT_DIR, 'CSHL_data')
     DATA_DIR = os.path.join(DATA_ROOTDIR, 'CSHL_data_processed')
@@ -526,7 +527,7 @@ all_alt_nissl_ntb_stacks = ['MD653', 'MD652', 'MD642']
 all_alt_nissl_tracing_stacks = ['MD657', 'MD658', 'MD661', 'MD662']
 # all_stacks = all_nissl_stacks + all_ntb_stacks
 all_stacks = all_nissl_stacks + all_ntb_stacks + all_alt_nissl_ntb_stacks + all_alt_nissl_tracing_stacks + all_dk_ntb_stacks \
-                + ['DEMO999']
+                + ['DEMO999', 'DEMO998']
 all_annotated_nissl_stacks = ['MD585', 'MD589', 'MD594']
 all_annotated_ntb_stacks = ['MD635']
 all_annotated_stacks = all_annotated_nissl_stacks + all_annotated_ntb_stacks
@@ -556,6 +557,7 @@ planar_resolution = {'MD585': XY_PIXEL_DISTANCE_LOSSLESS,
                      'CHATM2': XY_PIXEL_DISTANCE_LOSSLESS_AXIOSCAN,
                      'CHATM3': XY_PIXEL_DISTANCE_LOSSLESS_AXIOSCAN,
                      'DEMO999': XY_PIXEL_DISTANCE_LOSSLESS,
+			'DEMO998': XY_PIXEL_DISTANCE_LOSSLESS,
                     }
 
 ########################################

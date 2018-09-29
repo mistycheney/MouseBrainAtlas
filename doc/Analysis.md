@@ -10,7 +10,7 @@ Figures and plots are in [dropbox](https://www.dropbox.com/sh/42cl7qb27i3c0sx/AA
 
 # Registration Error
 
-### Registration error compared to ChAT labels
+### Compared to ChAT labels
 
 - centroid position error
 - Jaccard index between aligned atlas and ChAT
@@ -19,7 +19,7 @@ Computed for after local registration.
 
 `registration/evaluate_registration_metrics_v2_compute_deviation_vs_ChAT.ipynb`
 
-### Registration error compared to expert annotations
+### Compared to human expert annotations
 
 For the three brains with human annotation (MD585,MD589,MD594), the registration error is measured by comparing to aligned atlas structure volumes to the manually demarcated structure volumes, in terms of:
 - error in 3-D centroid position

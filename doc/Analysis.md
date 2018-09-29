@@ -21,13 +21,19 @@ Computed for after local registration.
 
 ### Registration error compared to expert annotations
 
+For the three brains with human annotation: MD585,MD589,MD594
 - centroid position error
 - Jaccard index between aligned atlas and expert annotation.
 - voxel value difference
 
-Computed for both after global registration, and after local registration.
+The computation is implemented in `registration/evaluate_registration_metrics_v2_compute_deviation_vs_expert.ipynb`. Results are stored at:
 
-`registration/evaluate_registration_metrics_v2_compute_deviation_vs_expert.ipynb`
+- after global registration:
+`Registration/compare_vs_expert_annotation/measurements/global_registration_metrics_allStacks_allStructures_allLevels_withBestAlignBaseline.json`
+
+- after local registration.
+`Registration/compare_vs_expert_annotation/measurements/local_registration_metrics_allStacks_allStructures_allLevels_withBestAlignBaseline.json`
+
 
 # Human Correction
 

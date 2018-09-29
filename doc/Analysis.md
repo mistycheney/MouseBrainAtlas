@@ -27,11 +27,9 @@ For the three brains with human annotation (MD585,MD589,MD594), the registration
 - average per-voxel probability value difference
 
 The computation is implemented in `registration/evaluate_registration_metrics_v2_compute_deviation_vs_expert.ipynb`. Results are stored at:
-
 - after global registration:
 `Registration/compare_vs_expert_annotation/measurements/global_registration_metrics_allStacks_allStructures_allLevels_withBestAlignBaseline.json`
-
-- after local registration.
+- after local registration:
 `Registration/compare_vs_expert_annotation/measurements/local_registration_metrics_allStacks_allStructures_allLevels_withBestAlignBaseline.json`
 
 

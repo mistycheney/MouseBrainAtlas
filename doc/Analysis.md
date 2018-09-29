@@ -12,12 +12,13 @@ Figures and plots are in [dropbox](https://www.dropbox.com/sh/42cl7qb27i3c0sx/AA
 
 ### Compared to ChAT labels
 
-- centroid position error
-- Jaccard index between aligned atlas and ChAT
+For the two ChAT brains (CHATM2, CHATM3), the registration error is measured by comparing every aligned atlas structure volume with the structure volume manually demarcated based on ChAT markers, in terms of:
+- error in 3-D centroid position
+- Jaccard overlap index
 
-Computed for after local registration.
-
-`registration/evaluate_registration_metrics_v2_compute_deviation_vs_ChAT.ipynb`
+The metrics are computed in `registration/evaluate_registration_metrics_v2_compute_deviation_vs_ChAT.ipynb`. 
+Results for local registration are stored at:
+`Registration/compare_with_CHAT/measurements/local_registration_metrics_allStacks_allStructures_allLevels.json`
 
 ### Compared to human expert annotations
 

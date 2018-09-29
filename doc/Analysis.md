@@ -21,7 +21,7 @@ Computed for after local registration.
 
 ### Compared to human expert annotations
 
-For the three brains with human annotation (MD585,MD589,MD594), the registration error is measured by comparing to aligned atlas structure volumes to the manually demarcated structure volumes, in terms of:
+For the three brains with human annotation (MD585,MD589,MD594), the registration error is measured by comparing every aligned atlas structure volume to manually demarcated structure volume, in terms of:
 - error in 3-D centroid position
 - Jaccard overlap index
 - average per-voxel probability value difference

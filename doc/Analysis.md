@@ -12,7 +12,7 @@ Figures and plots are in [dropbox](https://www.dropbox.com/sh/42cl7qb27i3c0sx/AA
 
 ### Compared to ChAT labels
 
-For the two ChAT brains (CHATM2, CHATM3), the registration error is measured by comparing every aligned atlas structure volume with the structure volume manually demarcated based on ChAT markers, in terms of:
+For the two ChAT brains (CHATM2, CHATM3), the registration error is measured for every motor nuclei by comparing every aligned atlas structure volume with the structure volume manually demarcated based on ChAT markers, in terms of:
 - error in 3-D centroid position
 - Jaccard overlap index
 

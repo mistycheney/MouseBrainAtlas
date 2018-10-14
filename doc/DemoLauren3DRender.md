@@ -44,7 +44,7 @@ python demo/download_demo_data_render3d.py
 python demo/demo_render3d.py --experiments_config demo/lauren_experiments.csv 
 ```
 
-In case of "X Error of failed request: ...", follow the fix [here](https://askubuntu.com/a/882047)
+If the error "X Error of failed request" occurs, follow the fix [here](https://askubuntu.com/a/882047).
 
 - The file `lauren_experiments.csv` specifies which experiments to display markers for and the color of each.
 - The file `render_config_atlas.csv` specifies the color/opacity of each atlas structure.

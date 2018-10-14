@@ -44,6 +44,8 @@ python demo/download_demo_data_render3d.py
 python demo/demo_render3d.py --experiments_config demo/lauren_experiments.csv 
 ```
 
+In case of "X Error of failed request: ...", follow the fix [here](https://askubuntu.com/a/882047)
+
 The file `demo/lauren_experiments.csv` specifies the set of brains to display and the color of each. One can select which brains to show by changing the csv file.
 
 In the 3D viewer, use mouse wheel to zoom and SHIFT+drag to move. Press Q to quit.

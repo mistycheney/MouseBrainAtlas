@@ -1918,7 +1918,7 @@ def convert_transform_forms(out_form, transform=None, aligner=None, select_best=
                 centroid_f = np.array(transform['centroid_f_wrt_wholebrain'])
                 centroid_m = np.array(transform['centroid_m_wrt_wholebrain'])
                 params = np.array(transform['parameters'])
-            elif 'centroid_f' in transforms:
+            elif 'centroid_f' in transform:
                 centroid_f = np.array(transform['centroid_f'])
                 centroid_m = np.array(transform['centroid_m'])
                 params = np.array(transform['parameters'])

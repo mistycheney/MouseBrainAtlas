@@ -1,8 +1,7 @@
 {
-"name":"DEMO999", 
-"vol_type": "score", 
-"structure":["3N", "4N"],
-"resolution":"10.0um",
-"detector_id":799
+"name":"LM51", 
+"vol_type": "annotationAsScore", 
+"structure":["SNR_L"],
+"resolution":"10.0um"
 }
 

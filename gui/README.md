@@ -23,7 +23,7 @@ Left click and drag to pan. Scroll mouse wheel to zoom.
 **Load**: Click "Load contours" in the bottom row -> Select the latest `[stack]_annotation_contours_[timestamp]` according to the modified time.
 
 ## Key bindings
-Press "H" to show these key bindings.
+Press "H" in the GUI to show a list of key bindings.
 
 - 1/2: go backward/forward along the stack in the full resolution panel.
 - 3/4, 5/6, 7/8: go forward/backward in the coronal, horizontal, sagittal whole-brain overview panel, respectively.

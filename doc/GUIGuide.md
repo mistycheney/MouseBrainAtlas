@@ -1,10 +1,12 @@
+ For complete instructions on how to interact with GUI, see [User Interface README](../gui/README.md).
+
 # Create/modify annotations using the graphical interface
 
 There are two ways to manipulate annotation on images.
 
 ## Method 1: Manually draw contours.
 
-Create or edit contours. For complete instructions on how to interact with GUI, see [User Interface README](../gui/README.md).
+Create or edit contours.
 
 ### Saving 2-D contours
 
